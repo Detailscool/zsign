@@ -15,6 +15,9 @@ pub mod adi_proxy;
 pub mod anisette_headers_provider;
 pub mod store_services_core;
 
+#[cfg(target_os = "macos")]
+pub mod aos_kit;
+
 #[cfg(feature = "remote-anisette-v3")]
 pub mod remote_anisette_v3;
 
@@ -151,24 +154,28 @@ impl AnisetteHeaders {
     pub fn get_anisette_headers_provider(
         configuration: AnisetteConfiguration,
     ) -> Result<AnisetteHeadersProviderRes, AnisetteError> {
+        #[cfg(feature = "remote-anisette-v3")]
+        if configuration.remote_enabled {
+            return Ok(AnisetteHeadersProviderRes::remote(Box::new(
+                remote_anisette_v3::RemoteAnisetteProviderV3::new(
+                    configuration.anisette_url_v3,
+                    configuration.configuration_path.clone(),
+                    configuration.macos_serial.clone(),
+                ),
+            )));
+        }
+
+        #[cfg(target_os = "macos")]
+        if let Ok(provider) = aos_kit::AOSKitAnisetteProvider::new() {
+            return Ok(AnisetteHeadersProviderRes::local(Box::new(provider)));
+        }
         if let Ok(ssc_anisette_headers_provider) =
             AnisetteHeaders::get_ssc_anisette_headers_provider(configuration.clone())
         {
             return Ok(ssc_anisette_headers_provider);
         }
 
-        if !configuration.remote_enabled {
-            return Err(AnisetteError::UnsupportedDevice);
-        }
-
-        #[cfg(feature = "remote-anisette-v3")]
-        return Ok(AnisetteHeadersProviderRes::remote(Box::new(
-            remote_anisette_v3::RemoteAnisetteProviderV3::new(
-                configuration.anisette_url_v3,
-                configuration.configuration_path.clone(),
-                configuration.macos_serial.clone(),
-            ),
-        )));
+        Err(AnisetteError::UnsupportedDevice)
     }
 
     pub fn get_ssc_anisette_headers_provider(

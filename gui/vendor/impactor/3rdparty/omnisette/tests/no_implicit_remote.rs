@@ -6,7 +6,10 @@ fn unavailable_local_anisette_does_not_silently_use_remote_server() {
     let result = AnisetteHeaders::get_anisette_headers_provider(
         AnisetteConfiguration::new().set_configuration_path(path),
     );
-    assert!(result.is_err(), "remote service must require explicit consent");
+    if let Ok(provider) = result {
+        assert!(matches!(provider.provider_type, AnisetteHeadersProviderType::Local),
+            "remote service must require explicit consent");
+    }
 }
 
 #[test]

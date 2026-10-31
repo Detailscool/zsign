@@ -9,5 +9,6 @@ Impactor license is in `LICENSE`.
 Local changes: the workspace is reduced to these components; `omnisette` enables
 the Chrono clock feature, defaults to local-only instead of falling back to a
 remote service, requires explicit HTTPS opt-in for remote use, and no longer
-disables TLS certificate verification. `tests/no_implicit_remote.rs` checks
-the local-only default. These components are not yet connected to the GUI.
+disables TLS certificate verification. A native macOS AOSKit provider was added;
+it reports missing or empty system data as an error. `tests/no_implicit_remote.rs`
+checks the local-only default. These components are not yet connected to the GUI.
