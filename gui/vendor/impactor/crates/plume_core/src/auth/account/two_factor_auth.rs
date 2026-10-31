@@ -8,7 +8,7 @@ use crate::auth::{Account, AuthenticationExtras, LoginState, PhoneNumber, Verify
 
 impl Account {
     pub async fn send_2fa_to_devices(&self) -> Result<LoginState, Error> {
-        let headers = self.build_2fa_headers(false).await;
+        let headers = self.build_2fa_headers(false).await?;
 
         let res = self
             .client
@@ -30,7 +30,7 @@ impl Account {
     }
 
     pub async fn send_sms_2fa_to_devices(&self, phone_id: u32) -> Result<LoginState, Error> {
-        let headers = self.build_2fa_headers(true).await;
+        let headers = self.build_2fa_headers(true).await?;
 
         let body = VerifyBody {
             phone_number: PhoneNumber { id: phone_id },
@@ -64,7 +64,7 @@ impl Account {
         let req = self
             .client
             .get("https://gsa.apple.com/auth")
-            .headers(headers.await)
+            .headers(headers.await?)
             .header("Accept", "application/json")
             .send()
             .await?;
@@ -88,7 +88,7 @@ impl Account {
         let res = self
             .client
             .get("https://gsa.apple.com/grandslam/GsService2/validate")
-            .headers(headers.await)
+            .headers(headers.await?)
             .header(
                 HeaderName::from_str("security-code").unwrap(),
                 HeaderValue::from_str(&code).unwrap(),
@@ -108,7 +108,7 @@ impl Account {
         code: String,
         mut body: VerifyBody,
     ) -> Result<LoginState, Error> {
-        let headers = self.build_2fa_headers(true).await;
+        let headers = self.build_2fa_headers(true).await?;
         body.security_code = Some(VerifyCode { code });
         let res = self
             .client
@@ -129,7 +129,7 @@ impl Account {
         Ok(LoginState::NeedsLogin)
     }
 
-    async fn build_2fa_headers(&self, sms: bool) -> HeaderMap {
+    async fn build_2fa_headers(&self, sms: bool) -> Result<HeaderMap, Error> {
         let spd = self.spd.as_ref().unwrap();
         let dsid = spd.get("adsid").unwrap().as_string().unwrap();
         let token = spd.get("GsIdmsToken").unwrap().as_string().unwrap();
@@ -137,7 +137,7 @@ impl Account {
         let identity_token = general_purpose::STANDARD.encode(format!("{}:{}", dsid, token));
 
         let mut headers = HeaderMap::new();
-        let valid_anisette = self.get_anisette().await;
+        let valid_anisette = self.get_anisette().await?;
         for (k, v) in valid_anisette.generate_headers(false, true, true) {
             headers.insert(
                 HeaderName::from_bytes(k.as_bytes()).unwrap(),
@@ -162,6 +162,6 @@ impl Account {
             headers.insert("Loc", HeaderValue::from_str(&locale).unwrap());
         }
 
-        headers
+        Ok(headers)
     }
 }

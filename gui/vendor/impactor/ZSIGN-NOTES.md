@@ -19,3 +19,4 @@ creation is connected.
 The developer device response exposes its status so callers can reject disabled
 devices before proposing a signing plan.
 Header lookup compares names case-insensitively without changing header values.
+Authentication-data refresh failures are returned to callers instead of panicking.

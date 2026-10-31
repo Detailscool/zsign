@@ -152,7 +152,7 @@ impl Account {
         let a: Vec<u8> = (0..32).map(|_| rand::random::<u8>()).collect();
         let a_pub = srp_client.compute_public_ephemeral(&a);
 
-        let anisette = self.get_anisette().await;
+        let anisette = self.get_anisette().await?;
 
         let mut gsa_headers = HeaderMap::new();
         gsa_headers.insert(
@@ -291,11 +291,11 @@ impl Account {
         (plist_get_string!(base, "fn"), plist_get_string!(base, "ln"))
     }
 
-    pub async fn get_anisette(&self) -> AnisetteData {
+    pub async fn get_anisette(&self) -> Result<AnisetteData, Error> {
         let mut locked = self.anisette.lock().await;
         if locked.needs_refresh() {
-            *locked = locked.refresh().await.unwrap();
+            *locked = locked.refresh().await?;
         }
-        locked.clone()
+        Ok(locked.clone())
     }
 }

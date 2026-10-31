@@ -20,7 +20,7 @@ impl Account {
         let dsid = spd.get("adsid").unwrap().as_string().unwrap();
         let auth_token = spd.get("GsIdmsToken").unwrap().as_string().unwrap();
 
-        let valid_anisette = self.get_anisette().await;
+        let valid_anisette = self.get_anisette().await?;
 
         let sk = spd.get("sk").unwrap().as_data().unwrap();
         let c = spd.get("c").unwrap().as_data().unwrap();
