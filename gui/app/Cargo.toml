@@ -27,6 +27,7 @@ rcgen = "0.12"
 x509-certificate = "0.24"
 zeroize = "1"
 uuid = { version = "1", features = ["v4"] }
+walkdir = "2"
 
 [patch.crates-io]
 apple-codesign = { path = "../vendor/impactor/3rdparty/apple-codesign-0.29.0" }

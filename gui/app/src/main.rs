@@ -40,5 +40,6 @@ mod auth;
 mod certificates;
 mod devices;
 mod ipa;
+mod package;
 mod preparation;
 mod secrets;

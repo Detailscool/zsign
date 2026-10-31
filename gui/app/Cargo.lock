@@ -8358,6 +8358,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "uuid",
+ "walkdir",
  "x509-certificate",
  "zeroize",
  "zip",
