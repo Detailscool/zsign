@@ -7,6 +7,7 @@
     <section><div class="heading"><h2>应用文件</h2><span>IPA</span></div><p>选择 IPA 文件，或将文件拖入窗口。</p><div class="row"><output id="ipa">尚未选择 IPA</output><button id="choose">选择文件</button></div></section>
     <section>
       <div class="heading"><h2>Apple 账户</h2><span id="auth-status" role="status">未登录</span></div>
+      <div id="login-form">
       <p>密码和验证码仅用于本次登录，不会保存。</p>
       <label>Apple ID <input id="email" type="email" autocomplete="username" placeholder="name@example.com"></label>
       <label>密码 <input id="password" type="password" autocomplete="off"></label>
@@ -18,6 +19,7 @@
       </details>
       <button id="login">登录 Apple ID</button>
       <button id="restore">恢复已保存的会话</button>
+      </div>
       <button id="sign-out" hidden>退出登录并清除会话</button>
       <div id="team-area" hidden><label>开发团队 <select id="teams" aria-label="开发团队"></select></label><button id="refresh-teams">刷新团队</button></div>
       <dialog id="verification" aria-labelledby="verification-title">

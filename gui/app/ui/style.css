@@ -2,4 +2,5 @@
 label{display:block;color:#cbd3e1;font-size:13px;margin-top:14px}input:not([type=checkbox]){display:block;width:100%;margin-top:6px;background:#171c26;color:#f1f4fa;border:1px solid #45516a;border-radius:7px;padding:10px}input:focus,select:focus,button:focus-visible{outline:2px solid #8da3ff;outline-offset:2px}details{margin-top:15px;font-size:13px;color:#cbd3e1}summary{cursor:pointer}.inline{display:flex;align-items:center;gap:8px}#verification{border-top:1px solid #40495a;margin-top:15px;padding-top:10px}#verification .row input{margin:0;flex:1}#sms-options{margin-top:12px}#sms-options button{margin-top:10px}
 .plan-details{white-space:pre-line;line-height:1.7;border-top:1px solid #40495a;margin-top:16px;padding-top:14px}
 #team-area button{margin-top:12px}
+#login-form>button{margin-top:15px}
 dialog#verification{width:min(460px,calc(100% - 32px));margin:auto;border:1px solid #45516a;border-radius:12px;padding:24px;background:#222733;color:#e8ebf2}dialog#verification::backdrop{background:rgba(0,0,0,.65)}dialog#verification h2{font-size:17px}dialog#verification p{margin-top:12px;color:#cbd3e1;font-size:13px}dialog#verification #verification-error{color:#ff9f9f}

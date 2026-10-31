@@ -2,6 +2,22 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { mount } from './workflow.js';
 
+test('signing in hides the login form and signing out shows it again', async () => {
+  const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#login-form', '#sign-out', '#team-area'];
+  const elements = Object.fromEntries(ids.map(id => [id, {
+    textContent: '', value: '', hidden: false,
+    addEventListener(_event, handler) { this.click = handler; }, replaceChildren() {}
+  }]));
+  const auth = { subscribe() {}, login: async () => {}, signOut: async () => ({}) };
+  mount({ querySelector: id => elements[id] }, async () => null, async () => [], auth);
+  await elements['#login'].click();
+  assert.equal(elements['#login-form'].hidden, true);
+  assert.equal(elements['#sign-out'].hidden, false);
+  await elements['#sign-out'].click();
+  assert.equal(elements['#login-form'].hidden, false);
+  assert.equal(elements['#sign-out'].hidden, true);
+});
+
 test('dropping an IPA validates it and displays its path', async () => {
   const elements = Object.fromEntries(['#ipa', '#error', '#choose', '#refresh', '#devices'].map(id => [id, {
     textContent: '', addEventListener(_event, handler) { this.click = handler; }

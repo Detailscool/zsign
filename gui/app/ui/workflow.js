@@ -198,6 +198,8 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
         const result = await auth.login(email, password, remoteUrl, remember);
         closeVerification();
         status.textContent = '已登录';
+        const loginForm = document.querySelector('#login-form');
+        if (loginForm) loginForm.hidden = true;
         const signOut = document.querySelector('#sign-out');
         if (signOut) signOut.hidden = false;
         if (teamArea) teamArea.hidden = false;
@@ -239,6 +241,8 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
       try {
         await auth.restore(email, remoteUrl);
         status.textContent = '已登录';
+        const loginForm = document.querySelector('#login-form');
+        if (loginForm) loginForm.hidden = true;
         const signOut = document.querySelector('#sign-out');
         if (signOut) signOut.hidden = false;
         if (teamArea) teamArea.hidden = false;
@@ -255,6 +259,8 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
         document.querySelector('#sign-out').hidden = !result?.warning;
         error.textContent = result?.warning ? `已退出，但无法清除保存的会话：${result.warning}` : '';
         status.textContent = '未登录';
+        const loginForm = document.querySelector('#login-form');
+        if (loginForm) loginForm.hidden = false;
         const area = document.querySelector('#team-area');
         if (area) area.hidden = true;
         document.querySelector('#teams')?.replaceChildren();
