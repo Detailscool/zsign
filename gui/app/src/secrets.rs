@@ -3,12 +3,12 @@ use zsign_gui_core::sessions::SecretStore;
 pub struct SystemSecretStore;
 
 #[cfg(target_os = "macos")]
-pub struct SessionPreferences {
+pub struct UserPreferences {
     suite: String,
 }
 
 #[cfg(target_os = "macos")]
-impl SessionPreferences {
+impl UserPreferences {
     pub fn new() -> Self {
         Self::with_suite("com.zsign.desktop")
     }
@@ -21,7 +21,7 @@ impl SessionPreferences {
 }
 
 #[cfg(target_os = "macos")]
-impl SecretStore for SessionPreferences {
+impl SecretStore for UserPreferences {
     fn set(&self, key: &str, value: &[u8]) -> Result<(), String> {
         use core_foundation::{base::TCFType, data::CFData, string::CFString};
         use core_foundation_sys::preferences::{
@@ -37,7 +37,7 @@ impl SecretStore for SessionPreferences {
                 suite.as_concrete_TypeRef(),
             );
             if CFPreferencesAppSynchronize(suite.as_concrete_TypeRef()) == 0 {
-                return Err("无法保存登录会话到用户偏好设置".into());
+                return Err("无法保存数据到用户偏好设置".into());
             }
         }
         Ok(())
@@ -60,7 +60,7 @@ impl SecretStore for SessionPreferences {
             }
             if CFGetTypeID(value.cast()) != CFDataGetTypeID() {
                 core_foundation_sys::base::CFRelease(value.cast());
-                return Err("已保存的登录信息格式无效".into());
+                return Err("用户偏好设置中保存的数据格式无效".into());
             }
             let data = CFData::wrap_under_create_rule(value as CFDataRef);
             Ok(Some(data.bytes().to_vec()))
@@ -81,7 +81,7 @@ impl SecretStore for SessionPreferences {
                 suite.as_concrete_TypeRef(),
             );
             if CFPreferencesAppSynchronize(suite.as_concrete_TypeRef()) == 0 {
-                return Err("无法删除用户偏好设置中的登录会话".into());
+                return Err("无法删除用户偏好设置中的数据".into());
             }
         }
         Ok(())
@@ -89,7 +89,7 @@ impl SecretStore for SessionPreferences {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub type SessionPreferences = SystemSecretStore;
+pub type UserPreferences = SystemSecretStore;
 
 #[cfg(not(target_os = "macos"))]
 impl SystemSecretStore {
@@ -134,14 +134,27 @@ mod tests {
     #[test]
     fn session_preferences_persist_and_can_be_removed() {
         let suite = format!("com.zsign.desktop.test.{}", uuid::Uuid::new_v4());
-        let store = SessionPreferences::with_suite(&suite);
+        let store = UserPreferences::with_suite(&suite);
         store.set("session:test", b"test session").unwrap();
-        let reopened = SessionPreferences::with_suite(&suite);
+        let reopened = UserPreferences::with_suite(&suite);
         assert_eq!(
             reopened.get("session:test").unwrap(),
             Some(b"test session".to_vec())
         );
         reopened.delete("session:test").unwrap();
         assert_eq!(store.get("session:test").unwrap(), None);
+    }
+
+    #[test]
+    fn signing_key_is_reused_from_user_preferences() {
+        let suite = format!("com.zsign.desktop.test.{}", uuid::Uuid::new_v4());
+        let store = UserPreferences::with_suite(&suite);
+        let key = crate::certificates::ensure_signing_key(&store, "TEAM123456").unwrap();
+        let reopened = UserPreferences::with_suite(&suite);
+        let restored = crate::certificates::load_signing_key(&reopened, "TEAM123456")
+            .unwrap()
+            .unwrap();
+        assert_eq!(key.to_public_key(), restored.to_public_key());
+        reopened.delete("signing-key:TEAM123456").unwrap();
     }
 }

@@ -74,9 +74,9 @@ pub async fn prepare_certificate(
     create_allowed: bool,
 ) -> Result<(RsaPrivateKey, Vec<u8>), String> {
     let key = if create_allowed {
-        ensure_signing_key(&crate::secrets::SystemSecretStore, team)?
+        ensure_signing_key(&crate::secrets::UserPreferences::new(), team)?
     } else {
-        load_signing_key(&crate::secrets::SystemSecretStore, team)?
+        load_signing_key(&crate::secrets::UserPreferences::new(), team)?
             .ok_or("已预览的签名私钥不可用，请重新检查")?
     };
     let certs = session

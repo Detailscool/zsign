@@ -1,7 +1,7 @@
 use crate::{
     auth::{self, Authentication},
     certificates, devices, ipa,
-    secrets::SystemSecretStore,
+    secrets::UserPreferences,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -146,7 +146,7 @@ pub async fn prepare_signing(
     let original_registered = app_ids.iter().any(|item| item.identifier == info.bundle_id);
     let team_for_key = team_id.clone();
     let key = tauri::async_runtime::spawn_blocking(move || {
-        certificates::load_signing_key(&SystemSecretStore, &team_for_key)
+        certificates::load_signing_key(&UserPreferences::new(), &team_for_key)
     })
     .await
     .map_err(|e| e.to_string())??;
