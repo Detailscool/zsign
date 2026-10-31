@@ -2,6 +2,21 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { mount } from './workflow.js';
 
+test('a remembered account is restored automatically on startup', async () => {
+  const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#login-form', '#sign-out', '#team-area'];
+  const elements = Object.fromEntries(ids.map(id => [id, {
+    textContent: '', value: '', hidden: false,
+    addEventListener(_event, handler) { this.click = handler; }, replaceChildren() {}
+  }]));
+  let restored;
+  const auth = { subscribe() {}, savedLogin: async () => ({ email: 'user@example.com', remote_url: 'https://example.com' }), restore: async (...args) => { restored = args; } };
+  mount({ querySelector: id => elements[id] }, async () => null, async () => [], auth);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(restored, ['user@example.com', 'https://example.com']);
+  assert.equal(elements['#auth-status'].textContent, '已登录');
+  assert.equal(elements['#login-form'].hidden, true);
+});
+
 test('signing in hides the login form and signing out shows it again', async () => {
   const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#login-form', '#sign-out', '#team-area'];
   const elements = Object.fromEntries(ids.map(id => [id, {

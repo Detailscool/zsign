@@ -228,10 +228,8 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
       catch (e) { (document.querySelector('#verification-error') || error).textContent = `无法发送短信：${e}`; }
     });
     document.querySelector('#refresh-teams')?.addEventListener('click', loadTeams);
-    document.querySelector('#restore')?.addEventListener('click', async () => {
+    const restoreSession = async (email, remoteUrl) => {
       invalidatePlan();
-      const email = document.querySelector('#email').value.trim();
-      const remoteUrl = document.querySelector('#remote')?.checked ? document.querySelector('#remote-url').value.trim() : null;
       login.disabled = true;
       error.textContent = '';
       status.textContent = '正在恢复会话';
@@ -251,7 +249,23 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
         status.textContent = '未登录';
         error.textContent = `无法恢复会话：${e}`;
       } finally { login.disabled = false; }
+    };
+    document.querySelector('#restore')?.addEventListener('click', () => {
+      const email = document.querySelector('#email').value.trim();
+      const remoteUrl = document.querySelector('#remote')?.checked ? document.querySelector('#remote-url').value.trim() : null;
+      return restoreSession(email, remoteUrl);
     });
+    if (auth.savedLogin) {
+      login.disabled = true;
+      Promise.resolve(auth.savedLogin()).then(saved => {
+        if (!saved) { login.disabled = false; return; }
+        document.querySelector('#email').value = saved.email;
+        const remote = document.querySelector('#remote');
+        if (remote) remote.checked = Boolean(saved.remote_url);
+        if (saved.remote_url && document.querySelector('#remote-url')) document.querySelector('#remote-url').value = saved.remote_url;
+        return restoreSession(saved.email, saved.remote_url);
+      }).catch(e => { login.disabled = false; error.textContent = `无法读取已保存的会话：${e}`; });
+    }
     document.querySelector('#sign-out')?.addEventListener('click', async () => {
       invalidatePlan();
       try {

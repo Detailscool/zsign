@@ -49,6 +49,7 @@ fn main() {
             inspect_dropped_ipa,
             list_devices,
             auth::login,
+            auth::saved_login,
             auth::restore_session,
             auth::sign_out,
             auth::submit_verification,

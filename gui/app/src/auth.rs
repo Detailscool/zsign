@@ -1,14 +1,30 @@
 use crate::secrets::SystemSecretStore;
 use omnisette::AnisetteConfiguration;
 use plume_core::auth::{Account, TwoFactorAction, TwoFactorMethod, TwoFactorRequest};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     mpsc, Arc, Mutex,
 };
 use tauri::{Emitter, Manager, State};
-use zsign_gui_core::sessions::{decode_session, encode_session, SessionVault};
+use zsign_gui_core::sessions::{decode_session, encode_session, SecretStore, SessionVault};
+
+const LAST_LOGIN: &str = "last-login";
+
+#[derive(Serialize, Deserialize)]
+pub struct SavedLogin {
+    email: String,
+    remote_url: Option<String>,
+}
+
+#[tauri::command]
+pub fn saved_login() -> Result<Option<SavedLogin>, String> {
+    SystemSecretStore
+        .get(LAST_LOGIN)?
+        .map(|bytes| plist::from_bytes(&bytes).map_err(|_| "无法读取已保存的登录信息".into()))
+        .transpose()
+}
 
 #[derive(Default)]
 pub struct Authentication {
@@ -141,7 +157,7 @@ pub async fn login(
     if email.trim().is_empty() || password.is_empty() {
         return Err("请输入 Apple ID 和密码".into());
     }
-    let config = anisette_config(&app, remote_url)?;
+    let config = anisette_config(&app, remote_url.clone())?;
     if state
         .running
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
@@ -196,17 +212,36 @@ pub async fn login(
             ))
             .map_err(|e| e.to_string())?;
         let warning = if remember {
-            let saved = account
-                .spd
-                .as_ref()
-                .ok_or("登录会话不完整，无法保存".to_string())
-                .and_then(encode_session)
+            let saved = SystemSecretStore
+                .delete(LAST_LOGIN)
+                .and_then(|()| {
+                    account
+                        .spd
+                        .as_ref()
+                        .ok_or("登录会话不完整，无法保存".to_string())
+                        .and_then(encode_session)
+                })
                 .and_then(|bytes| {
                     SessionVault::new(&SystemSecretStore).save_if_requested(&email, &bytes, true)
+                })
+                .and_then(|()| {
+                    let mut bytes = Vec::new();
+                    plist::to_writer_binary(
+                        &mut bytes,
+                        &SavedLogin {
+                            email: email.clone(),
+                            remote_url,
+                        },
+                    )
+                    .map_err(|_| "无法编码登录信息".to_string())?;
+                    SystemSecretStore.set(LAST_LOGIN, &bytes)
                 });
             saved.err().map(|e| format!("已登录，但未能保存会话：{e}"))
         } else {
-            None
+            SystemSecretStore
+                .delete(LAST_LOGIN)
+                .err()
+                .map(|e| format!("已登录，但无法清除旧的自动登录信息：{e}"))
         };
         *shared.account.lock().map_err(|_| "账户状态不可用")? = Some(account);
         *shared.current_email.lock().map_err(|_| "账户状态不可用")? = Some(email);
@@ -282,6 +317,7 @@ pub async fn sign_out(state: State<'_, Arc<Authentication>>) -> Result<SignOutRe
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = RunningGuard(shared.clone());
         *shared.account.lock().map_err(|_| "账户状态不可用")? = None;
+        SystemSecretStore.delete(LAST_LOGIN)?;
         let email = shared
             .current_email
             .lock()
@@ -336,6 +372,21 @@ pub fn cancel_verification(state: State<'_, Arc<Authentication>>) -> Result<(), 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn remembered_login_preserves_local_or_remote_authentication_choice() {
+        for remote_url in [None, Some("https://example.com".to_string())] {
+            let saved = SavedLogin {
+                email: "user@example.com".into(),
+                remote_url: remote_url.clone(),
+            };
+            let mut bytes = Vec::new();
+            plist::to_writer_binary(&mut bytes, &saved).unwrap();
+            let restored: SavedLogin = plist::from_bytes(&bytes).unwrap();
+            assert_eq!(restored.email, "user@example.com");
+            assert_eq!(restored.remote_url, remote_url);
+        }
+    }
 
     #[test]
     fn signing_operations_are_exclusive_and_release_the_lock() {

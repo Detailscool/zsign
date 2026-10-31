@@ -3,6 +3,7 @@ const { invoke } = window.__TAURI__.core;
 const auth = {
   subscribe: handler => window.__TAURI__.event.listen('authentication-challenge', event => handler(event.payload)),
   login: (email, password, remoteUrl, remember) => invoke('login', { email, password, remoteUrl, remember }),
+  savedLogin: () => invoke('saved_login'),
   restore: (email, remoteUrl) => invoke('restore_session', { email, remoteUrl }),
   signOut: () => invoke('sign_out'),
   listTeams: () => invoke('list_teams'),
