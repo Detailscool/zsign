@@ -10,3 +10,5 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 rfd = "0.15"
+tempfile = "3"
+zsign-gui-core = { path = "../core" }

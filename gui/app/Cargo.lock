@@ -5015,6 +5015,16 @@ dependencies = [
  "rfd",
  "tauri",
  "tauri-build",
+ "tempfile",
+ "zsign-gui-core",
+]
+
+[[package]]
+name = "zsign-gui-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

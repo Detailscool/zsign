@@ -1,5 +1,7 @@
 //! Desktop signing workflow.
 
+pub mod devices;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthenticationState {
     SignedOut,
