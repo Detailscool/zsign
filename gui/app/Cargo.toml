@@ -21,6 +21,11 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 keyring = "4.2"
 plist = "1"
 sha2 = "0.10"
+rsa = { version = "0.9", features = ["pem"] }
+rand = "0.8"
+rcgen = "0.12"
+x509-certificate = "0.24"
+zeroize = "1"
 
 [patch.crates-io]
 apple-codesign = { path = "../vendor/impactor/3rdparty/apple-codesign-0.29.0" }

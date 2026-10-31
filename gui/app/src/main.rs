@@ -77,5 +77,6 @@ fn main() {
         .expect("could not start zsign desktop");
 }
 mod auth;
+mod certificates;
 mod ipa;
 mod secrets;

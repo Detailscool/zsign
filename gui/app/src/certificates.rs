@@ -1,0 +1,115 @@
+use rand::rngs::OsRng;
+use rsa::{
+    pkcs1::EncodeRsaPublicKey,
+    pkcs8::{DecodePrivateKey, EncodePrivateKey},
+    RsaPrivateKey,
+};
+use zeroize::Zeroizing;
+use zsign_gui_core::sessions::SecretStore;
+
+fn key_name(team_id: &str) -> Result<String, String> {
+    if team_id.len() != 10
+        || !team_id
+            .bytes()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+    {
+        return Err("开发团队 ID 无效".into());
+    }
+    Ok(format!("signing-key:{team_id}"))
+}
+
+pub fn load_signing_key<S: SecretStore>(
+    store: &S,
+    team_id: &str,
+) -> Result<Option<RsaPrivateKey>, String> {
+    let Some(bytes) = store.get(&key_name(team_id)?)? else {
+        return Ok(None);
+    };
+    let bytes = Zeroizing::new(bytes);
+    RsaPrivateKey::from_pkcs8_der(&bytes)
+        .map(Some)
+        .map_err(|_| "已保存的签名私钥无效，未覆盖原有数据".into())
+}
+
+pub fn ensure_signing_key<S: SecretStore>(
+    store: &S,
+    team_id: &str,
+) -> Result<RsaPrivateKey, String> {
+    if let Some(key) = load_signing_key(store, team_id)? {
+        return Ok(key);
+    }
+    let key = RsaPrivateKey::new(&mut OsRng, 2048).map_err(|_| "无法生成签名私钥")?;
+    let encoded = key.to_pkcs8_der().map_err(|_| "无法编码签名私钥")?;
+    store.set(&key_name(team_id)?, encoded.as_bytes())?;
+    Ok(key)
+}
+
+pub fn certificate_matches(key: &RsaPrivateKey, certificate_der: &[u8]) -> Result<bool, String> {
+    let certificate = x509_certificate::X509Certificate::from_der(certificate_der)
+        .map_err(|_| "无法读取开发证书")?;
+    let public_key = key
+        .to_public_key()
+        .to_pkcs1_der()
+        .map_err(|_| "无法读取签名公钥")?;
+    Ok(public_key.as_bytes() == certificate.public_key_data().as_ref())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashMap, sync::Mutex};
+    use zsign_gui_core::sessions::SecretStore;
+
+    #[derive(Default)]
+    struct MemoryStore(Mutex<HashMap<String, Vec<u8>>>);
+    impl SecretStore for MemoryStore {
+        fn set(&self, key: &str, value: &[u8]) -> Result<(), String> {
+            self.0.lock().unwrap().insert(key.into(), value.into());
+            Ok(())
+        }
+        fn get(&self, key: &str) -> Result<Option<Vec<u8>>, String> {
+            Ok(self.0.lock().unwrap().get(key).cloned())
+        }
+        fn delete(&self, key: &str) -> Result<(), String> {
+            self.0.lock().unwrap().remove(key);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_team_signing_key_is_reused_on_a_later_request() {
+        let store = MemoryStore::default();
+        let first = super::ensure_signing_key(&store, "TEAM123456").unwrap();
+        let second = super::ensure_signing_key(&store, "TEAM123456").unwrap();
+        assert_eq!(first.to_public_key(), second.to_public_key());
+        assert_eq!(store.0.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_certificate_matches_only_its_own_signing_key() {
+        use rsa::pkcs8::EncodePrivateKey;
+        let store = MemoryStore::default();
+        let first = super::ensure_signing_key(&store, "TEAM123456").unwrap();
+        let second = super::ensure_signing_key(&store, "TEAM654321").unwrap();
+        let key_der = first.to_pkcs8_der().unwrap();
+        let mut params = rcgen::CertificateParams::new(vec![]);
+        params.alg = &rcgen::PKCS_RSA_SHA256;
+        params.key_pair = Some(rcgen::KeyPair::from_der(key_der.as_bytes()).unwrap());
+        let cert = rcgen::Certificate::from_params(params)
+            .unwrap()
+            .serialize_der()
+            .unwrap();
+        assert!(super::certificate_matches(&first, &cert).unwrap());
+        assert!(!super::certificate_matches(&second, &cert).unwrap());
+    }
+
+    #[test]
+    fn a_corrupt_saved_key_is_not_overwritten() {
+        let store = MemoryStore::default();
+        store.set("signing-key:TEAM123456", b"not a key").unwrap();
+        assert!(super::ensure_signing_key(&store, "TEAM123456").is_err());
+        assert_eq!(
+            store.get("signing-key:TEAM123456").unwrap().unwrap(),
+            b"not a key"
+        );
+    }
+}
