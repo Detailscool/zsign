@@ -10,3 +10,10 @@ fn a_requested_verification_code_is_shown_before_sign_in_completes() {
     auth.complete();
     assert_eq!(auth.state(), AuthenticationState::SignedIn);
 }
+
+#[test]
+fn an_unsolicited_success_does_not_sign_in_a_signed_out_user() {
+    let mut auth = Authentication::new();
+    auth.complete();
+    assert_eq!(auth.state(), AuthenticationState::SignedOut);
+}

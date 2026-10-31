@@ -23,7 +23,11 @@ impl Authentication {
 
     pub fn require_verification(&mut self) { self.state = AuthenticationState::AwaitingVerification; }
 
-    pub fn complete(&mut self) { self.state = AuthenticationState::SignedIn; }
+    pub fn complete(&mut self) {
+        if matches!(self.state, AuthenticationState::SigningIn | AuthenticationState::AwaitingVerification) {
+            self.state = AuthenticationState::SignedIn;
+        }
+    }
 }
 
 impl Default for Authentication {
