@@ -8,6 +8,27 @@ pub struct Device {
     pub name: String,
 }
 
+pub fn parse_usbmux_ids(output: &str) -> Vec<String> {
+    let mut ids = Vec::new();
+    for id in output.lines().map(str::trim) {
+        let valid = (id.len() == 40 && id.bytes().all(|b| b.is_ascii_hexdigit()))
+            || (id.len() == 25
+                && id.as_bytes().get(8) == Some(&b'-')
+                && id
+                    .bytes()
+                    .enumerate()
+                    .all(|(i, b)| i == 8 || b.is_ascii_hexdigit()));
+        if valid
+            && !ids
+                .iter()
+                .any(|existing: &String| existing.eq_ignore_ascii_case(id))
+        {
+            ids.push(id.to_string());
+        }
+    }
+    ids
+}
+
 /// Extract connected physical iOS devices from `devicectl list devices` JSON.
 pub fn parse_devicectl_devices(output: &str) -> Result<Vec<Device>, String> {
     let value: Value = serde_json::from_str(output).map_err(|e| e.to_string())?;

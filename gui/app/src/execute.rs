@@ -185,10 +185,25 @@ pub async fn execute_signing(
         }
     }
     #[cfg(not(target_os = "macos"))]
-    return Err(format!(
-        "IPA 已保存至 {}，此平台的安装功能尚未完成",
-        export.display()
-    ));
-    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("ideviceinstaller")
+            .args(["-u", &device.udid, "install"])
+            .arg(&export)
+            .output()
+            .map_err(|e| {
+                format!(
+                    "IPA 已保存至 {}，但无法启动 ideviceinstaller：{e}",
+                    export.display()
+                )
+            })?;
+        if !output.status.success() {
+            let detail = String::from_utf8_lossy(&output.stderr);
+            return Err(format!(
+                "IPA 已保存至 {}，但安装失败：{}",
+                export.display(),
+                detail.chars().take(1200).collect::<String>()
+            ));
+        }
+    }
     Ok(export.to_string_lossy().into_owned())
 }
