@@ -13,6 +13,12 @@ build by setting `DEVELOPER_DIR` to its `Contents/Developer` directory.
 The script links OpenSSL into the bundled CLI; the minimum macOS version of the
 result depends on the OpenSSL libraries and compiler used to build it.
 
+On macOS, remembered login sessions and their account/Anisette settings are
+stored in the app's user preferences, not the Keychain. Passwords and
+verification codes are not stored. Signing private keys still use the Keychain.
+Sessions saved by earlier versions in the Keychain are not migrated; sign in
+again to save a session in preferences.
+
 Linux and Windows device support uses `idevice_id`, `ideviceinfo`, and
 `ideviceinstaller` on PATH. Their packaging and real-device workflows have not
 yet been verified.

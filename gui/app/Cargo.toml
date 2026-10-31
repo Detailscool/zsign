@@ -30,5 +30,9 @@ uuid = { version = "1", features = ["v4"] }
 walkdir = "2"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+core-foundation-sys = "0.8"
+
 [patch.crates-io]
 apple-codesign = { path = "../vendor/impactor/3rdparty/apple-codesign-0.29.0" }

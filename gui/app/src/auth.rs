@@ -1,4 +1,4 @@
-use crate::secrets::SystemSecretStore;
+use crate::secrets::SessionPreferences;
 use omnisette::AnisetteConfiguration;
 use plume_core::auth::{Account, TwoFactorAction, TwoFactorMethod, TwoFactorRequest};
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ pub struct SavedLogin {
 
 #[tauri::command]
 pub fn saved_login() -> Result<Option<SavedLogin>, String> {
-    SystemSecretStore
+    SessionPreferences::new()
         .get(LAST_LOGIN)?
         .map(|bytes| plist::from_bytes(&bytes).map_err(|_| "无法读取已保存的登录信息".into()))
         .transpose()
@@ -212,7 +212,7 @@ pub async fn login(
             ))
             .map_err(|e| e.to_string())?;
         let warning = if remember {
-            let saved = SystemSecretStore
+            let saved = SessionPreferences::new()
                 .delete(LAST_LOGIN)
                 .and_then(|()| {
                     account
@@ -222,7 +222,8 @@ pub async fn login(
                         .and_then(encode_session)
                 })
                 .and_then(|bytes| {
-                    SessionVault::new(&SystemSecretStore).save_if_requested(&email, &bytes, true)
+                    SessionVault::new(&SessionPreferences::new())
+                        .save_if_requested(&email, &bytes, true)
                 })
                 .and_then(|()| {
                     let mut bytes = Vec::new();
@@ -234,11 +235,11 @@ pub async fn login(
                         },
                     )
                     .map_err(|_| "无法编码登录信息".to_string())?;
-                    SystemSecretStore.set(LAST_LOGIN, &bytes)
+                    SessionPreferences::new().set(LAST_LOGIN, &bytes)
                 });
             saved.err().map(|e| format!("已登录，但未能保存会话：{e}"))
         } else {
-            SystemSecretStore
+            SessionPreferences::new()
                 .delete(LAST_LOGIN)
                 .err()
                 .map(|e| format!("已登录，但无法清除旧的自动登录信息：{e}"))
@@ -275,7 +276,7 @@ pub async fn restore_session(
         let _guard = RunningGuard(shared.clone());
         *shared.account.lock().map_err(|_| "账户状态不可用")? = None;
         *shared.current_email.lock().map_err(|_| "账户状态不可用")? = None;
-        let bytes = SessionVault::new(&SystemSecretStore)
+        let bytes = SessionVault::new(&SessionPreferences::new())
             .load(&email)?
             .ok_or("没有找到已保存的会话")?;
         let spd = decode_session(&bytes)?;
@@ -317,14 +318,14 @@ pub async fn sign_out(state: State<'_, Arc<Authentication>>) -> Result<SignOutRe
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = RunningGuard(shared.clone());
         *shared.account.lock().map_err(|_| "账户状态不可用")? = None;
-        SystemSecretStore.delete(LAST_LOGIN)?;
+        SessionPreferences::new().delete(LAST_LOGIN)?;
         let email = shared
             .current_email
             .lock()
             .map_err(|_| "账户状态不可用")?
             .clone();
         if let Some(email) = email {
-            if let Err(error) = SessionVault::new(&SystemSecretStore).forget(&email) {
+            if let Err(error) = SessionVault::new(&SessionPreferences::new()).forget(&email) {
                 return Ok(SignOutResult {
                     warning: Some(error),
                 });

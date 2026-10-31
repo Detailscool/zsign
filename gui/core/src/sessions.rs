@@ -38,7 +38,7 @@ pub fn decode_session(bytes: &[u8]) -> Result<plist::Dictionary, String> {
     plist::from_bytes(&sanitized).map_err(|_| "已保存的会话无效".into())
 }
 
-/// A platform-backed secret store. Implementations must never fall back to plaintext files.
+/// A platform-backed store for session data or signing keys.
 pub trait SecretStore {
     fn set(&self, key: &str, value: &[u8]) -> Result<(), String>;
     fn get(&self, key: &str) -> Result<Option<Vec<u8>>, String>;
