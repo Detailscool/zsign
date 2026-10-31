@@ -1,0 +1,16 @@
+# zsign Desktop
+
+The desktop app is under active development. It uses the existing zsign CLI to
+sign and currently requires real Apple account and device validation before it
+can be considered production-ready.
+
+On macOS install Rust, Xcode, pkg-config and OpenSSL (including static libraries),
+then run `sh gui/build-macos.sh`. The result is `gui/dist/zsign Desktop.app`.
+If the active developer directory is Command Line Tools, select Xcode for the
+build by setting `DEVELOPER_DIR` to its `Contents/Developer` directory.
+The script links OpenSSL into the bundled CLI; the minimum macOS version of the
+result depends on the OpenSSL libraries and compiler used to build it.
+
+Linux and Windows device support uses `idevice_id`, `ideviceinfo`, and
+`ideviceinstaller` on PATH. Their packaging and real-device workflows have not
+yet been verified.
