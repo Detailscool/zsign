@@ -11,7 +11,8 @@
 - zsign 已支持 P12、描述文件、IPA 签名和调用 `ideviceinstaller`，但不实现账户认证、设备发现或签名材料申请。
 - [apple-private-apis](https://github.com/SideStore/apple-private-apis) 提供 Rust 认证、Anisette 和开发者接口模块，项目自述仍处于早期阶段；许可证为 MPL-2.0。其本机 macOS 支持及双重认证实际可用性尚需验证，集成时需检查依赖与许可证义务。
 - [SideSign](https://github.com/SideStore/SideSign) 是另一候选，声明采用 GPL-3.0，不能在未评估发行和许可证影响的情况下直接引入。
-- Tauri 是候选桌面框架；[官方环境要求](https://tauri.app/start/prerequisites/)和各平台打包条件需逐一验证。本机有 Rust、Node 和 OpenSSL；当前开发目录指向 Command Line Tools，`xcodebuild` 不可用；`idevice_id` 和 `ideviceinstaller` 未发现。
+- Tauri 是候选桌面框架；[官方环境要求](https://tauri.app/start/prerequisites/)和各平台打包条件需逐一验证。本机有 Rust、Node 和 OpenSSL。默认开发目录指向 Command Line Tools，但通过 `DEVELOPER_DIR=/Applications/Xcode-27.1.0.app/Contents/Developer` 可使用 Xcode 27.1；`idevice_id` 和 `ideviceinstaller` 未发现。
+- 在候选库提交 `03beb1aa42991ccdad6214dee77e72282bef461f` 中，源码包含 macOS 本地 Anisette、受信任设备及短信验证码路径；这只是静态代码证据，未验证服务端实际行为。其默认提供者可能在本地失败时静默回退远程，远程实现还包含关闭 TLS 证书校验的代码；集成时必须显式选择提供者并保持证书校验，不能直接沿用这些默认行为。
 - 非公开 Apple 接口、免费账户权限、本机 Anisette 和真实设备安装均未验证。不能将登录或签名功能视为已可用。
 
 ## 实施顺序
