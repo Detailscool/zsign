@@ -21,3 +21,28 @@ test('device refresh displays connected device names', async () => {
   await elements['#refresh'].click();
   assert.equal(elements['#devices'].children[0].textContent, 'My iPhone');
 });
+
+test('a verification challenge asks for a code and submits it to the authentication service', async () => {
+  const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify'];
+  const elements = Object.fromEntries(ids.map(id => [id, {
+    textContent: '', value: '', hidden: false,
+    addEventListener(_event, handler) { this.click = handler; }, replaceChildren() {}
+  }]));
+  elements['#email'].value = 'user@example.com';
+  elements['#password'].value = 'secret';
+  let challenge, code, finishLogin;
+  const auth = {
+    subscribe: handler => { challenge = handler; },
+    login: () => { challenge({ method: 'device', phones: [] }); return new Promise(resolve => { finishLogin = resolve; }); },
+    submitCode: async value => { code = value; finishLogin(); },
+  };
+  mount({ querySelector: id => elements[id] }, async () => null, async () => [], auth);
+  const login = elements['#login'].click();
+  await Promise.resolve();
+  assert.equal(elements['#verification'].hidden, false);
+  assert.equal(elements['#password'].value, '');
+  elements['#code'].value = '123456';
+  await elements['#verify'].click();
+  await login;
+  assert.equal(code, '123456');
+});

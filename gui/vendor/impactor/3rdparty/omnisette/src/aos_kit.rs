@@ -1,4 +1,5 @@
 //! macOS AOSKit authentication data. Missing private APIs and empty values are errors.
+#![allow(unexpected_cfgs)] // The objc macros use the legacy cargo-clippy cfg.
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -29,9 +30,9 @@ impl AOSKitAnisetteProvider {
 unsafe fn string_value(value: *const NSString) -> Result<String, AnisetteError> {
     if value.is_null() { return Err(AnisetteError::UnsupportedDevice); }
     let string_class = Class::get("NSString").ok_or(AnisetteError::UnsupportedDevice)?;
-    let is_string: bool = msg_send![value, isKindOfClass: string_class];
+    let is_string: bool = unsafe { msg_send![value, isKindOfClass: string_class] };
     if !is_string { return Err(AnisetteError::UnsupportedDevice); }
-    let result = (*value).as_str().to_string();
+    let result = unsafe { (*value).as_str() }.to_string();
     if result.is_empty() { return Err(AnisetteError::UnsupportedDevice); }
     Ok(result)
 }

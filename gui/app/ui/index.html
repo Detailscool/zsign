@@ -5,7 +5,23 @@
   <main>
     <header><div class="mark">Z</div><div><h1>zsign Desktop</h1><p>签名并安装 iOS 应用</p></div></header>
     <section><div class="heading"><h2>应用文件</h2><span>IPA</span></div><p>选择要签名并安装的应用。</p><div class="row"><output id="ipa">尚未选择 IPA</output><button id="choose">选择文件</button></div></section>
-    <section><div class="heading"><h2>Apple 账户</h2><span>未连接</span></div><p>账户登录和双重认证功能正在接入。</p><button disabled>登录 Apple ID</button></section>
+    <section>
+      <div class="heading"><h2>Apple 账户</h2><span id="auth-status" role="status">未登录</span></div>
+      <p>密码和验证码仅用于本次登录，不会保存。</p>
+      <label>Apple ID <input id="email" type="email" autocomplete="username" placeholder="name@example.com"></label>
+      <label>密码 <input id="password" type="password" autocomplete="off"></label>
+      <details><summary>认证数据来源</summary>
+        <p>默认使用本机认证数据。如果本机不可用，可以选择远程服务：服务会收到用于生成认证数据的设备标识和配置数据。Apple ID、密码与验证码用于向 Apple 认证。</p>
+        <label class="inline"><input id="remote" type="checkbox"> 使用以下远程服务</label>
+        <input id="remote-url" type="url" placeholder="https://example.com" aria-label="远程认证服务地址">
+      </details>
+      <button id="login">登录 Apple ID</button>
+      <div id="verification" hidden>
+        <p id="verification-message">请输入 Apple 发送的 6 位验证码。</p>
+        <div class="row"><input id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-label="验证码"><button id="verify">验证</button><button id="cancel-verify">取消</button></div>
+        <div id="sms-options" hidden><label>受信任电话号码 <select id="phones"></select></label><button id="send-sms">发送短信验证码</button></div>
+      </div>
+    </section>
     <section><div class="heading"><h2>目标设备</h2><button id="refresh">刷新设备</button></div><p>连接并信任 iPhone 或 iPad，然后选择设备。</p><select id="devices" aria-label="目标设备"><option value="">尚未发现设备</option></select></section>
     <footer><p>完成账户与设备连接后，即可准备签名。</p><button class="primary" disabled>签名并安装</button></footer>
     <p id="error" role="alert"></p>

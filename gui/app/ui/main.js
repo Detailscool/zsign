@@ -1,3 +1,10 @@
 import { mount } from './workflow.js';
-mount(document, () => window.__TAURI__.core.invoke('select_ipa'),
-  () => window.__TAURI__.core.invoke('list_devices'));
+const { invoke } = window.__TAURI__.core;
+const auth = {
+  subscribe: handler => window.__TAURI__.event.listen('authentication-challenge', event => handler(event.payload)),
+  login: (email, password, remoteUrl) => invoke('login', { email, password, remoteUrl }),
+  submitCode: code => invoke('submit_verification', { code }),
+  sendSms: phoneId => invoke('send_sms', { phoneId }),
+  cancel: () => invoke('cancel_verification'),
+};
+mount(document, () => invoke('select_ipa'), () => invoke('list_devices'), auth);
