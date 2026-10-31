@@ -3,6 +3,7 @@
 pub mod devices;
 pub mod ipa;
 pub mod plan;
+pub mod profile;
 pub mod sessions;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

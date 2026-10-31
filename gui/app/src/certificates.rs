@@ -54,6 +54,74 @@ pub fn certificate_matches(key: &RsaPrivateKey, certificate_der: &[u8]) -> Resul
     Ok(public_key.as_bytes() == certificate.public_key_data().as_ref())
 }
 
+pub fn certificate_request(key: &RsaPrivateKey) -> Result<String, String> {
+    let der = key.to_pkcs8_der().map_err(|_| "无法编码签名私钥")?;
+    let mut params = rcgen::CertificateParams::new(vec![]);
+    params.alg = &rcgen::PKCS_RSA_SHA256;
+    params.key_pair =
+        Some(rcgen::KeyPair::from_der(der.as_bytes()).map_err(|_| "无法创建证书请求")?);
+    params
+        .distinguished_name
+        .push(rcgen::DnType::CommonName, "zsign Desktop");
+    rcgen::Certificate::from_params(params)
+        .and_then(|cert| cert.serialize_request_pem())
+        .map_err(|_| "无法生成证书请求".into())
+}
+
+pub async fn prepare_certificate(
+    session: &plume_core::developer::DeveloperSession,
+    team: &String,
+    create_allowed: bool,
+) -> Result<(RsaPrivateKey, Vec<u8>), String> {
+    let key = if create_allowed {
+        ensure_signing_key(&crate::secrets::SystemSecretStore, team)?
+    } else {
+        load_signing_key(&crate::secrets::SystemSecretStore, team)?
+            .ok_or("已预览的签名私钥不可用，请重新检查")?
+    };
+    let certs = session
+        .qh_list_certs(team)
+        .await
+        .map_err(|e| e.to_string())?
+        .certificates;
+    for cert in &certs {
+        let Some(content) = &cert.cert_content else {
+            continue;
+        };
+        let expires: std::time::SystemTime = cert.expiration_date.clone().into();
+        if expires > std::time::SystemTime::now()
+            && (cert.status.eq_ignore_ascii_case("issued")
+                || cert.status.eq_ignore_ascii_case("active"))
+            && certificate_matches(&key, content.as_ref())?
+        {
+            return Ok((key, content.as_ref().to_vec()));
+        }
+    }
+    if !create_allowed {
+        return Err("已预览的证书不再可用，请重新检查".into());
+    }
+    let request = certificate_request(&key)?;
+    let created = session
+        .qh_submit_cert_csr(team, request, &"zsign Desktop".to_string())
+        .await
+        .map_err(|e| format!("无法创建开发证书（不会自动撤销已有证书）：{e}"))?
+        .cert_request;
+    let certs = session
+        .qh_list_certs(team)
+        .await
+        .map_err(|e| e.to_string())?
+        .certificates;
+    let cert = certs
+        .into_iter()
+        .find(|c| c.certificate_id == created.certificate_id)
+        .and_then(|c| c.cert_content)
+        .ok_or("证书已申请，但 Apple 尚未返回证书内容，请重新检查")?;
+    if !certificate_matches(&key, cert.as_ref())? {
+        return Err("Apple 返回的证书与私钥不匹配".into());
+    }
+    Ok((key, cert.as_ref().to_vec()))
+}
+
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, sync::Mutex};
