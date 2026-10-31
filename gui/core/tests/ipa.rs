@@ -1,5 +1,5 @@
 use std::io::{Cursor, Write};
-use zsign_gui_core::ipa::inspect_archive;
+use zsign_gui_core::ipa::{inspect_archive, validate_entitlements};
 
 fn archive(entries: &[(&str, &[u8])]) -> Vec<u8> {
     let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
@@ -66,4 +66,39 @@ fn parent_segments_are_rejected_even_if_they_stay_inside_the_archive() {
     let bytes = archive(&[("Payload/Temp/../Example.app/Info.plist", INFO)]);
     let error = inspect_archive(Cursor::new(bytes)).unwrap_err();
     assert!(error.contains("路径"), "{error}");
+}
+
+#[test]
+fn an_app_with_a_special_capability_is_rejected() {
+    let mut entitlements = plist::Dictionary::new();
+    entitlements.insert(
+        "application-identifier".into(),
+        "TEAM123456.com.example.app".into(),
+    );
+    entitlements.insert(
+        "com.apple.developer.team-identifier".into(),
+        "TEAM123456".into(),
+    );
+    entitlements.insert("aps-environment".into(), "production".into());
+    let error = validate_entitlements(&entitlements, "com.example.app").unwrap_err();
+    assert!(error.contains("aps-environment"), "{error}");
+}
+
+#[test]
+fn ordinary_application_and_its_own_keychain_group_are_supported() {
+    let mut entitlements = plist::Dictionary::new();
+    entitlements.insert(
+        "application-identifier".into(),
+        "TEAM123456.com.example.app".into(),
+    );
+    entitlements.insert(
+        "com.apple.developer.team-identifier".into(),
+        "TEAM123456".into(),
+    );
+    entitlements.insert(
+        "keychain-access-groups".into(),
+        plist::Value::Array(vec!["TEAM123456.com.example.app".into()]),
+    );
+    entitlements.insert("get-task-allow".into(), true.into());
+    assert!(validate_entitlements(&entitlements, "com.example.app").is_ok());
 }

@@ -6,8 +6,7 @@ fn select_ipa() -> Result<Option<String>, String> {
     let Some(path) = path else {
         return Ok(None);
     };
-    let file = std::fs::File::open(&path).map_err(|e| format!("无法打开 IPA：{e}"))?;
-    zsign_gui_core::ipa::inspect_archive(file)?;
+    ipa::inspect_ipa(&path)?;
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 
@@ -76,3 +75,4 @@ fn main() {
         .expect("could not start zsign desktop");
 }
 mod auth;
+mod ipa;

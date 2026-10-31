@@ -8,6 +8,52 @@ pub struct IpaInfo {
     pub app_path: String,
 }
 
+/// Reject capabilities the initial signing workflow cannot provision safely.
+pub fn validate_entitlements(
+    entitlements: &plist::Dictionary,
+    bundle_id: &str,
+) -> Result<(), String> {
+    for key in entitlements.keys() {
+        if !matches!(
+            key.as_str(),
+            "application-identifier"
+                | "com.apple.developer.team-identifier"
+                | "get-task-allow"
+                | "beta-reports-active"
+                | "keychain-access-groups"
+        ) {
+            return Err(format!("暂不支持 entitlement：{key}"));
+        }
+    }
+    let team = entitlements
+        .get("com.apple.developer.team-identifier")
+        .and_then(plist::Value::as_string)
+        .filter(|team| !team.is_empty())
+        .ok_or("无法读取原签名的 Team ID")?;
+    let app_id = entitlements
+        .get("application-identifier")
+        .and_then(plist::Value::as_string)
+        .ok_or("无法读取原签名的 application-identifier")?;
+    if app_id != format!("{team}.{bundle_id}") {
+        return Err("原签名的 application-identifier 与 Bundle ID 不一致".into());
+    }
+    for key in ["get-task-allow", "beta-reports-active"] {
+        if entitlements
+            .get(key)
+            .is_some_and(|v| v.as_boolean().is_none())
+        {
+            return Err(format!("entitlement 格式无效：{key}"));
+        }
+    }
+    if let Some(groups) = entitlements.get("keychain-access-groups") {
+        let groups = groups.as_array().ok_or("keychain-access-groups 格式无效")?;
+        if groups.iter().any(|group| group.as_string() != Some(app_id)) {
+            return Err("暂不支持自定义钥匙串访问组".into());
+        }
+    }
+    Ok(())
+}
+
 /// Inspect an IPA without extracting it or modifying the input.
 pub fn inspect_archive<R: Read + Seek>(reader: R) -> Result<IpaInfo, String> {
     let mut archive = zip::ZipArchive::new(reader).map_err(|_| "无法读取 IPA 压缩包")?;

@@ -16,6 +16,8 @@ plume_core = { path = "../vendor/impactor/crates/plume_core", features = ["tweak
 omnisette = { path = "../vendor/impactor/3rdparty/omnisette", features = ["remote-anisette-v3"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+apple-codesign = { path = "../vendor/impactor/3rdparty/apple-codesign-0.29.0", default-features = false }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [patch.crates-io]
 apple-codesign = { path = "../vendor/impactor/3rdparty/apple-codesign-0.29.0" }

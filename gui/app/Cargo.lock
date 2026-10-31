@@ -8224,6 +8224,7 @@ dependencies = [
 name = "zsign-desktop"
 version = "0.1.0"
 dependencies = [
+ "apple-codesign",
  "omnisette",
  "plume_core",
  "rfd",
@@ -8232,6 +8233,7 @@ dependencies = [
  "tauri-build",
  "tempfile",
  "tokio",
+ "zip",
  "zsign-gui-core",
 ]
 
