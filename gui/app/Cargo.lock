@@ -8357,6 +8357,7 @@ dependencies = [
  "tauri-build",
  "tempfile",
  "tokio",
+ "uuid",
  "x509-certificate",
  "zeroize",
  "zip",

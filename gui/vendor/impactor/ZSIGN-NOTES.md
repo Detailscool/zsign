@@ -16,3 +16,5 @@ The upstream certificate helper no longer revokes certificates automatically
 when the account is at its certificate limit. Its file-backed private-key storage
 is not used by the GUI; a secure platform store is required before certificate
 creation is connected.
+The developer device response exposes its status so callers can reject disabled
+devices before proposing a signing plan.

@@ -27,7 +27,8 @@
       </div>
     </section>
     <section><div class="heading"><h2>目标设备</h2><button id="refresh">刷新设备</button></div><p>连接并信任 iPhone 或 iPad，然后选择设备。</p><select id="devices" aria-label="目标设备"><option value="">尚未发现设备</option></select></section>
-    <footer><p>完成账户与设备连接后，即可准备签名。</p><button class="primary" disabled>签名并安装</button></footer>
+    <section><div class="heading"><h2>签名前检查</h2></div><p>留空将根据所选团队建议 Bundle ID，也可以输入自己的标识。</p><label>目标 Bundle ID <input id="bundle-id" placeholder="自动建议"></label><button id="prepare">检查并预览变更</button><div id="plan-area" hidden><p id="plan-details" class="plan-details"></p></div></section>
+    <footer><p>确认账户变更后，才能继续签名。</p><button class="primary" disabled>签名并安装</button></footer>
     <p id="error" role="alert"></p>
   </main><script type="module" src="main.js"></script>
 </body></html>

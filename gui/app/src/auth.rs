@@ -4,7 +4,7 @@ use plume_core::auth::{Account, TwoFactorAction, TwoFactorMethod, TwoFactorReque
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     mpsc, Arc, Mutex,
 };
 use tauri::{Emitter, Manager, State};
@@ -16,6 +16,13 @@ pub struct Authentication {
     pending: Mutex<Option<mpsc::Sender<Result<TwoFactorAction, String>>>>,
     pub account: Mutex<Option<Account>>,
     current_email: Mutex<Option<String>>,
+    generation: AtomicU64,
+}
+
+impl Authentication {
+    pub fn generation(&self) -> u64 {
+        self.generation.load(Ordering::Acquire)
+    }
 }
 
 #[derive(Clone, Serialize)]
@@ -71,6 +78,22 @@ fn anisette_config(
 
 #[tauri::command]
 pub async fn list_teams(state: State<'_, Arc<Authentication>>) -> Result<Vec<Team>, String> {
+    let session = developer_session(&state).await?;
+    let response = session.qh_list_teams().await.map_err(|e| e.to_string())?;
+    Ok(response
+        .teams
+        .into_iter()
+        .map(|team| Team {
+            id: team.team_id,
+            name: team.name,
+            kind: team._type,
+        })
+        .collect())
+}
+
+pub async fn developer_session(
+    state: &Authentication,
+) -> Result<plume_core::developer::DeveloperSession, String> {
     let account = state
         .account
         .lock()
@@ -84,19 +107,9 @@ pub async fn list_teams(state: State<'_, Arc<Authentication>>) -> Result<Vec<Tea
     {
         return Err("登录会话不完整，请重新登录".into());
     }
-    let session = plume_core::developer::DeveloperSession::using_account(account)
+    plume_core::developer::DeveloperSession::using_account(account)
         .await
-        .map_err(|e| e.to_string())?;
-    let response = session.qh_list_teams().await.map_err(|e| e.to_string())?;
-    Ok(response
-        .teams
-        .into_iter()
-        .map(|team| Team {
-            id: team.team_id,
-            name: team.name,
-            kind: team._type,
-        })
-        .collect())
+        .map_err(|e| e.to_string())
 }
 
 struct RunningGuard(Arc<Authentication>);
@@ -130,6 +143,7 @@ pub async fn login(
         return Err("登录正在进行中".into());
     }
     let shared = state.inner().clone();
+    shared.generation.fetch_add(1, Ordering::AcqRel);
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = RunningGuard(shared.clone());
         *shared.account.lock().map_err(|_| "账户状态不可用")? = None;
@@ -214,6 +228,7 @@ pub async fn restore_session(
         return Err("登录正在进行中".into());
     }
     let shared = state.inner().clone();
+    shared.generation.fetch_add(1, Ordering::AcqRel);
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = RunningGuard(shared.clone());
         *shared.account.lock().map_err(|_| "账户状态不可用")? = None;
@@ -256,6 +271,7 @@ pub async fn sign_out(state: State<'_, Arc<Authentication>>) -> Result<SignOutRe
         return Err("请先完成或取消登录".into());
     }
     let shared = state.inner().clone();
+    shared.generation.fetch_add(1, Ordering::AcqRel);
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = RunningGuard(shared.clone());
         *shared.account.lock().map_err(|_| "账户状态不可用")? = None;

@@ -1,20 +1,29 @@
-export function mount(document, openDialog, fetchDevices, auth) {
+export function mount(document, openDialog, fetchDevices, auth, prepareSigning) {
   let ipa = '';
+  let revision = 0;
   const output = document.querySelector('#ipa');
   const error = document.querySelector('#error');
+  const invalidatePlan = () => {
+    revision += 1;
+    const area = document.querySelector('#plan-area');
+    if (area) area.hidden = true;
+  };
   document.querySelector('#choose').addEventListener('click', async () => {
+    invalidatePlan();
     try {
       const selected = await openDialog();
-      if (selected) ipa = selected;
+      if (selected) { ipa = selected; invalidatePlan(); }
       output.textContent = ipa || '尚未选择 IPA';
       error.textContent = '';
     } catch (e) {
       ipa = '';
+      invalidatePlan();
       output.textContent = '尚未选择 IPA';
       error.textContent = `无法选择文件：${e}`;
     }
   });
   document.querySelector('#refresh').addEventListener('click', async () => {
+    invalidatePlan();
     try {
       const devices = await fetchDevices();
       const options = devices.map(device => {
@@ -30,10 +39,44 @@ export function mount(document, openDialog, fetchDevices, auth) {
         options.push(option);
       }
       document.querySelector('#devices').replaceChildren(...options);
+      invalidatePlan();
       error.textContent = '';
     } catch (e) {
       error.textContent = `无法发现设备：${e}`;
     }
+  });
+  document.querySelector('#devices')?.addEventListener('change', invalidatePlan);
+  document.querySelector('#teams')?.addEventListener('change', invalidatePlan);
+  document.querySelector('#bundle-id')?.addEventListener('input', invalidatePlan);
+  document.querySelector('#prepare')?.addEventListener('click', async () => {
+    invalidatePlan();
+    const team = document.querySelector('#teams')?.value;
+    const device = document.querySelector('#devices')?.value;
+    if (!ipa || !team || !device) { error.textContent = '请选择 IPA、开发团队和目标设备。'; return; }
+    const button = document.querySelector('#prepare');
+    const preparedRevision = revision;
+    button.disabled = true;
+    error.textContent = '';
+    try {
+      const desired = document.querySelector('#bundle-id')?.value.trim() || null;
+      const result = await prepareSigning(ipa, team, device, desired);
+      if (revision !== preparedRevision) { error.textContent = '输入已变化，请重新检查。'; return; }
+      const plan = result.plan;
+      document.querySelector('#bundle-id').value = plan.target_bundle_id;
+      document.querySelector('#plan-details').textContent = [
+        `应用：${plan.app_name}`,
+        `开发团队：${plan.team_name}`,
+        `设备：${plan.device_name}`,
+        `原 Bundle ID：${plan.original_bundle_id}`,
+        `目标 Bundle ID：${plan.target_bundle_id}`,
+        plan.register_device ? '将注册设备' : '复用已注册设备',
+        plan.register_app_id ? '将创建 App ID' : '复用已有 App ID',
+        plan.create_certificate ? '将创建证书' : `复用证书：${plan.certificate?.name || ''}`,
+        '将获取或更新描述文件；不会自动撤销已有证书。',
+      ].join('\n');
+      document.querySelector('#plan-area').hidden = false;
+    } catch (e) { error.textContent = `无法准备签名：${e}`; }
+    finally { button.disabled = false; }
   });
   if (auth) {
     const status = document.querySelector('#auth-status');
@@ -44,6 +87,7 @@ export function mount(document, openDialog, fetchDevices, auth) {
       if (!select || !auth.listTeams) return;
       try {
         const teams = await auth.listTeams();
+        invalidatePlan();
         const options = teams.map(team => {
           const option = document.createElement('option');
           option.value = team.id;
@@ -80,6 +124,7 @@ export function mount(document, openDialog, fetchDevices, auth) {
       }
     }));
     login.addEventListener('click', async () => {
+      invalidatePlan();
       const email = document.querySelector('#email').value.trim();
       const passwordInput = document.querySelector('#password');
       const password = passwordInput.value;
@@ -125,6 +170,7 @@ export function mount(document, openDialog, fetchDevices, auth) {
     });
     document.querySelector('#refresh-teams')?.addEventListener('click', loadTeams);
     document.querySelector('#restore')?.addEventListener('click', async () => {
+      invalidatePlan();
       const email = document.querySelector('#email').value.trim();
       const remoteUrl = document.querySelector('#remote')?.checked ? document.querySelector('#remote-url').value.trim() : null;
       login.disabled = true;
@@ -146,6 +192,7 @@ export function mount(document, openDialog, fetchDevices, auth) {
       } finally { login.disabled = false; }
     });
     document.querySelector('#sign-out')?.addEventListener('click', async () => {
+      invalidatePlan();
       try {
         const result = await auth.signOut();
         document.querySelector('#sign-out').hidden = !result?.warning;

@@ -99,7 +99,7 @@ pub struct Device {
     name: String,
     device_number: String,
     device_platform: String,
-    status: String,
+    pub status: String,
     device_class: String,
     expiration_date: Option<Date>,
 }

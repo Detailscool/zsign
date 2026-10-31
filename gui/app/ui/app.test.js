@@ -108,3 +108,43 @@ test('a saved session can be restored without entering a password', async () => 
   assert.equal(restored, 'user@example.com');
   assert.equal(elements['#auth-status'].textContent, '已登录');
 });
+
+test('signing preparation presents the account changes before any installation', async () => {
+  const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#teams', '#bundle-id', '#prepare', '#plan-details', '#plan-area'];
+  const elements = Object.fromEntries(ids.map(id => [id, {
+    textContent: '', value: '', checked: false, hidden: false,
+    addEventListener(_event, handler) { this.click = handler; }, replaceChildren() {}
+  }]));
+  elements['#email'].value = 'user@example.com';
+  elements['#password'].value = 'secret';
+  elements['#teams'].value = 'TEAM123456';
+  elements['#devices'].value = 'device-1';
+  const auth = { subscribe() {}, login: async () => {} };
+  const prepare = async () => ({ plan: { app_name: 'Example', original_bundle_id: 'com.example.app', target_bundle_id: 'com.zsign.example', team_name: 'Test Team', device_name: 'iPhone', register_device: true, register_app_id: true, create_certificate: true } });
+  mount({ querySelector: id => elements[id] }, async () => '/tmp/Example.ipa', async () => [], auth, prepare);
+  await elements['#choose'].click();
+  await elements['#login'].click();
+  await elements['#prepare'].click();
+  assert.match(elements['#plan-details'].textContent, /注册设备/);
+  assert.match(elements['#plan-details'].textContent, /创建证书/);
+  assert.equal(elements['#plan-area'].hidden, false);
+});
+
+test('a preview is discarded if the inputs change while it is loading', async () => {
+  const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#teams', '#bundle-id', '#prepare', '#plan-details', '#plan-area'];
+  const elements = Object.fromEntries(ids.map(id => [id, {
+    textContent: '', value: '', checked: false, hidden: false,
+    addEventListener(_event, handler) { this.click = handler; }, replaceChildren() {}
+  }]));
+  elements['#email'].value = 'user@example.com'; elements['#password'].value = 'secret';
+  elements['#teams'].value = 'TEAM123456'; elements['#devices'].value = 'device-1';
+  let finish;
+  const prepare = () => new Promise(resolve => { finish = resolve; });
+  mount({ querySelector: id => elements[id] }, async () => '/tmp/Example.ipa', async () => [], { subscribe() {}, login: async () => {} }, prepare);
+  await elements['#choose'].click(); await elements['#login'].click();
+  const pending = elements['#prepare'].click();
+  elements['#bundle-id'].value = 'com.changed.app'; elements['#bundle-id'].click();
+  finish({ plan: { app_name: 'old', target_bundle_id: 'com.old.app' } });
+  await pending;
+  assert.equal(elements['#plan-area'].hidden, true);
+});

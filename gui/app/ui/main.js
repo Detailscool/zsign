@@ -10,4 +10,5 @@ const auth = {
   sendSms: phoneId => invoke('send_sms', { phoneId }),
   cancel: () => invoke('cancel_verification'),
 };
-mount(document, () => invoke('select_ipa'), () => invoke('list_devices'), auth);
+mount(document, () => invoke('select_ipa'), () => invoke('list_devices'), auth,
+  (ipaPath, teamId, deviceId, bundleId) => invoke('prepare_signing', { ipaPath, teamId, deviceId, bundleId }));
