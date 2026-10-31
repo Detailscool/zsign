@@ -85,4 +85,56 @@ mod tests {
             0o111
         );
     }
+
+    #[cfg(unix)]
+    #[test]
+    #[ignore = "requires ZSIGN_TEST_BINARY built for this host"]
+    fn signs_and_repackages_an_ipa_with_a_valid_bundle_signature() {
+        use std::{fs, os::unix::fs::PermissionsExt, process::Command};
+        let cli = std::env::var_os("ZSIGN_TEST_BINARY").expect("set ZSIGN_TEST_BINARY");
+        let work = tempfile::tempdir().unwrap();
+        let original = work.path().join("original");
+        let app = original.join("Payload/Example.app");
+        fs::create_dir_all(&app).unwrap();
+        fs::write(app.join("Info.plist"), br#"<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.example.app</string><key>CFBundleExecutable</key><string>Example</string><key>CFBundleName</key><string>Example</string><key>CFBundlePackageType</key><string>APPL</string></dict></plist>"#).unwrap();
+        let executable = app.join("Example");
+        fs::write(
+            &executable,
+            include_bytes!("../tests/fixtures/signed-basic.macho"),
+        )
+        .unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+        let input = work.path().join("input.ipa");
+        crate::package::archive(&original, &input).unwrap();
+        let extracted = work.path().join("extracted");
+        crate::package::extract(&input, &extracted).unwrap();
+        let signed_app = extracted.join("Payload/Example.app");
+        let modes = crate::package::capture_permissions(&signed_app).unwrap();
+        super::run_cli(
+            std::path::Path::new(&cli),
+            &["-a".into(), "-f".into(), signed_app.as_os_str().into()],
+            work.path(),
+        )
+        .unwrap();
+        crate::package::restore_permissions(&signed_app, &modes).unwrap();
+        let output = work.path().join("output.ipa");
+        crate::package::archive(&extracted, &output).unwrap();
+        let result = work.path().join("result");
+        crate::package::extract(&output, &result).unwrap();
+        let result_app = result.join("Payload/Example.app");
+        assert!(Command::new("codesign")
+            .args(["--verify", "--deep", "--strict"])
+            .arg(&result_app)
+            .status()
+            .unwrap()
+            .success());
+        assert_eq!(
+            fs::metadata(result_app.join("Example"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o111,
+            0o111
+        );
+    }
 }
