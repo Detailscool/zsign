@@ -14,7 +14,7 @@
 - Tauri 是候选桌面框架；[官方环境要求](https://tauri.app/start/prerequisites/)和各平台打包条件需逐一验证。本机有 Rust、Node 和 OpenSSL。默认开发目录指向 Command Line Tools，但通过 `DEVELOPER_DIR=/Applications/Xcode-27.1.0.app/Contents/Developer` 可使用 Xcode 27.1；`idevice_id` 和 `ideviceinstaller` 未发现。
 - 在候选库提交 `03beb1aa42991ccdad6214dee77e72282bef461f` 中，源码包含 macOS 本地 Anisette、受信任设备及短信验证码路径；这只是静态代码证据，未验证服务端实际行为。其默认提供者可能在本地失败时静默回退远程，远程实现还包含关闭 TLS 证书校验的代码；集成时必须显式选择提供者并保持证书校验，不能直接沿用这些默认行为。
 - 实际 `cargo check -p icloud_auth -p apple-dev-apis` 在 macOS 因 `omnisette` 的 AOSKit trait 签名不匹配失败；`apple-dev-apis` 的 `XcodeSession::with` 仍为 `todo!()`，因此该版本不能直接满足认证及开发者接口需求。
-- [Impactor](https://github.com/claration/impactor) 的 `plume_core` 提供认证和开发者接口，包声明 MPL-2.0；其 Anisette 默认回退远程且远程实现关闭 TLS 校验，必须修改并验证后才可接入。源码静态检查不能证明 Apple 服务当前可用。本机运行 macOS 27.2；本机 Anisette 可用性尚待实测。
+- [Impactor](https://github.com/claration/impactor) 的 `plume_core` 提供认证和开发者接口，包声明 MPL-2.0；在 macOS 编译该提交时需启用 `tweaks` 特性。已固定所需源码并修改默认远程回退和 TLS 设置，见 [第三方说明](../gui/vendor/impactor/ZSIGN-NOTES.md)。尚未接入界面或证明 Apple 服务当前可用。本机运行 macOS 27.2；本机 Anisette 可用性尚待实测。
 - 非公开 Apple 接口、免费账户权限、本机 Anisette 和真实设备安装均未验证。不能将登录或签名功能视为已可用。
 
 ## 实施顺序
