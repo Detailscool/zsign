@@ -43,3 +43,4 @@ mod ipa;
 mod package;
 mod preparation;
 mod secrets;
+mod signer;
