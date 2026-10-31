@@ -51,6 +51,29 @@ pub fn extract(ipa: &Path, destination: &Path) -> Result<(), String> {
 }
 
 pub fn archive(root: &Path, output: &Path) -> Result<(), String> {
+    archive_with_permissions(root, output, &PermissionSnapshot::new())
+}
+
+pub fn archive_permissions(ipa: &Path) -> Result<PermissionSnapshot, String> {
+    let file = fs::File::open(ipa).map_err(|e| format!("无法打开 IPA：{e}"))?;
+    let mut zip = zip::ZipArchive::new(file).map_err(|_| "无法读取 IPA 压缩包")?;
+    let mut modes = PermissionSnapshot::new();
+    for index in 0..zip.len() {
+        let entry = zip.by_index(index).map_err(|_| "无法读取 IPA 条目")?;
+        if let (Some(path), Some(mode)) = (entry.enclosed_name(), entry.unix_mode()) {
+            if entry.is_file() {
+                modes.insert(path, mode & 0o777);
+            }
+        }
+    }
+    Ok(modes)
+}
+
+pub fn archive_with_permissions(
+    root: &Path,
+    output: &Path,
+    modes: &PermissionSnapshot,
+) -> Result<(), String> {
     let file = fs::File::create(output).map_err(|e| format!("无法创建 IPA：{e}"))?;
     let mut zip = zip::ZipWriter::new(file);
     for entry in walkdir::WalkDir::new(root).min_depth(1).follow_links(false) {
@@ -72,6 +95,7 @@ pub fn archive(root: &Path, output: &Path) -> Result<(), String> {
         };
         #[cfg(not(unix))]
         let mode = if metadata.is_dir() { 0o755 } else { 0o644 };
+        let mode = modes.get(relative).copied().unwrap_or(mode);
         let options = SimpleFileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated)
             .unix_permissions(mode);
@@ -144,6 +168,34 @@ mod tests {
         super::restore_permissions(workspace.path(), &modes).unwrap();
         assert_eq!(
             fs::metadata(executable).unwrap().permissions().mode() & 0o777,
+            0o755
+        );
+    }
+}
+
+#[cfg(test)]
+mod portable_tests {
+    #[test]
+    fn repacking_uses_the_original_archive_executable_mode() {
+        use std::{collections::HashMap, fs};
+        let work = tempfile::tempdir().unwrap();
+        let root = work.path().join("root");
+        fs::create_dir_all(root.join("Payload/Example.app")).unwrap();
+        fs::write(root.join("Payload/Example.app/Example"), b"executable").unwrap();
+        let mut modes = HashMap::new();
+        modes.insert(
+            std::path::PathBuf::from("Payload/Example.app/Example"),
+            0o755,
+        );
+        let output = work.path().join("output.ipa");
+        super::archive_with_permissions(&root, &output, &modes).unwrap();
+        let mut zip = zip::ZipArchive::new(fs::File::open(output).unwrap()).unwrap();
+        assert_eq!(
+            zip.by_name("Payload/Example.app/Example")
+                .unwrap()
+                .unix_mode()
+                .unwrap()
+                & 0o777,
             0o755
         );
     }

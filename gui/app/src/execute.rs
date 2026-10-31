@@ -71,6 +71,11 @@ pub async fn execute_signing(
         return Err("IPA 已改变，请重新预览签名计划".into());
     }
     let info = ipa::inspect_ipa(&snapshot)?;
+    let mut archive_modes = package::archive_permissions(&snapshot)?;
+    archive_modes
+        .entry(std::path::PathBuf::from(&info.app_path).join(&info.executable))
+        .and_modify(|mode| *mode |= 0o111)
+        .or_insert(0o755);
     let device = devices::discover()?
         .into_iter()
         .find(|d| d.id == plan.plan.device_id && d.udid == plan.device_udid)
@@ -164,7 +169,7 @@ pub async fn execute_signing(
     let parent = export.parent().ok_or("输出路径无效")?;
     let tmp =
         tempfile::NamedTempFile::new_in(parent).map_err(|e| format!("无法创建输出文件：{e}"))?;
-    package::archive(&root, tmp.path())?;
+    package::archive_with_permissions(&root, tmp.path(), &archive_modes)?;
     tmp.persist_noclobber(&export)
         .map_err(|e| format!("无法保存 IPA：{}", e.error))?;
     progress(&app, "签名完成，正在安装到设备…");
