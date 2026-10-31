@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>zsign Desktop</title><link rel="stylesheet" href="style.css"></head>
+<body>
+  <main>
+    <header><div class="mark">Z</div><div><h1>zsign Desktop</h1><p>签名并安装 iOS 应用</p></div></header>
+    <section><div class="heading"><h2>应用文件</h2><span>IPA</span></div><p>选择要签名并安装的应用。</p><div class="row"><output id="ipa">尚未选择 IPA</output><button id="choose">选择文件</button></div></section>
+    <section><div class="heading"><h2>Apple 账户</h2><span>未连接</span></div><p>账户登录和双重认证功能正在接入。</p><button disabled>登录 Apple ID</button></section>
+    <section><div class="heading"><h2>目标设备</h2><span>未连接</span></div><p>设备发现和安装功能正在接入。</p></section>
+    <footer><p>完成账户与设备连接后，即可准备签名。</p><button class="primary" disabled>签名并安装</button></footer>
+    <p id="error" role="alert"></p>
+  </main><script type="module" src="main.js"></script>
+</body></html>
