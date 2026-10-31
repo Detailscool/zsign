@@ -110,6 +110,11 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
     const status = document.querySelector('#auth-status');
     const verification = document.querySelector('#verification');
     const login = document.querySelector('#login');
+    const closeVerification = () => {
+      if (verification.open) verification.close();
+      verification.hidden = true;
+      document.querySelector('#code').value = '';
+    };
     const loadTeams = async () => {
       const select = document.querySelector('#teams');
       if (!select || !auth.listTeams) return;
@@ -134,7 +139,10 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
       } catch (e) { error.textContent = `无法读取开发团队：${e}`; }
     };
     const subscription = Promise.resolve(auth.subscribe(challenge => {
+      const verificationError = document.querySelector('#verification-error');
+      if (verificationError) verificationError.textContent = '';
       verification.hidden = false;
+      if (verification.showModal && !verification.open) verification.showModal();
       status.textContent = '等待验证码';
       const message = document.querySelector('#verification-message');
       if (message) message.textContent = challenge.method === 'sms' ? '请输入短信验证码。' : '请输入受信任设备上的验证码。';
@@ -169,7 +177,7 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
       try {
         await subscription;
         const result = await auth.login(email, password, remoteUrl, remember);
-        verification.hidden = true;
+        closeVerification();
         status.textContent = '已登录';
         const signOut = document.querySelector('#sign-out');
         if (signOut) signOut.hidden = false;
@@ -177,7 +185,7 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
         await loadTeams();
         if (result?.warning) error.textContent = result.warning;
       } catch (e) {
-        verification.hidden = true;
+        closeVerification();
         status.textContent = '未登录';
         error.textContent = `登录失败：${e}`;
       } finally {
@@ -186,15 +194,17 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
     });
     document.querySelector('#verify').addEventListener('click', async () => {
       const input = document.querySelector('#code');
-      try { await auth.submitCode(input.value); input.value = ''; error.textContent = ''; }
-      catch (e) { error.textContent = `验证码未提交：${e}`; }
+      try { await auth.submitCode(input.value); input.value = ''; error.textContent = ''; const message = document.querySelector('#verification-error'); if (message) message.textContent = ''; }
+      catch (e) { (document.querySelector('#verification-error') || error).textContent = `验证码未提交：${e}`; }
     });
-    document.querySelector('#cancel-verify')?.addEventListener('click', async () => {
+    const cancelVerification = async () => {
       try { await auth.cancel(); } catch (e) { error.textContent = `无法取消验证：${e}`; }
-    });
+    };
+    document.querySelector('#cancel-verify')?.addEventListener('click', cancelVerification);
+    verification.addEventListener('cancel', event => { event.preventDefault(); return cancelVerification(); });
     document.querySelector('#send-sms')?.addEventListener('click', async () => {
       try { await auth.sendSms(Number(document.querySelector('#phones').value)); }
-      catch (e) { error.textContent = `无法发送短信：${e}`; }
+      catch (e) { (document.querySelector('#verification-error') || error).textContent = `无法发送短信：${e}`; }
     });
     document.querySelector('#refresh-teams')?.addEventListener('click', loadTeams);
     document.querySelector('#restore')?.addEventListener('click', async () => {

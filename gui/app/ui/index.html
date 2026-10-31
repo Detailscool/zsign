@@ -20,11 +20,13 @@
       <button id="restore">恢复已保存的会话</button>
       <button id="sign-out" hidden>退出登录并清除会话</button>
       <div id="team-area" hidden><label>开发团队 <select id="teams" aria-label="开发团队"></select></label><button id="refresh-teams">刷新团队</button></div>
-      <div id="verification" hidden>
+      <dialog id="verification" aria-labelledby="verification-title">
+        <h2 id="verification-title">Apple ID 双重认证</h2>
         <p id="verification-message">请输入 Apple 发送的 6 位验证码。</p>
         <div class="row"><input id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-label="验证码"><button id="verify">验证</button><button id="cancel-verify">取消</button></div>
         <div id="sms-options" hidden><label>受信任电话号码 <select id="phones"></select></label><button id="send-sms">发送短信验证码</button></div>
-      </div>
+        <p id="verification-error" role="alert"></p>
+      </dialog>
     </section>
     <section><div class="heading"><h2>目标设备</h2><button id="refresh">刷新设备</button></div><p>连接并信任 iPhone 或 iPad，然后选择设备。</p><select id="devices" aria-label="目标设备"><option value="">尚未发现设备</option></select></section>
     <section><div class="heading"><h2>签名前检查</h2></div><p>留空将根据所选团队建议 Bundle ID，也可以输入自己的标识。</p><label>目标 Bundle ID <input id="bundle-id" placeholder="自动建议"></label><button id="prepare">检查并预览变更</button><div id="plan-area" hidden><p id="plan-details" class="plan-details"></p></div></section>

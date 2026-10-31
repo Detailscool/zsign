@@ -2,6 +2,34 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { mount } from './workflow.js';
 
+test('verification opens a modal and dismissing it cancels sign in', async () => {
+  const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#cancel-verify'];
+  const elements = Object.fromEntries(ids.map(id => [id, {
+    textContent: '', value: '', hidden: false, handlers: {},
+    addEventListener(event, handler) { this.handlers[event] = handler; }, replaceChildren() {}
+  }]));
+  const dialog = elements['#verification'];
+  dialog.showModal = () => { dialog.open = true; };
+  dialog.close = () => { dialog.open = false; };
+  let challenge, cancelLogin, cancelled = false;
+  const auth = {
+    subscribe: handler => { challenge = handler; },
+    login: () => { challenge({ method: 'device', phones: [] }); return new Promise((_, reject) => { cancelLogin = reject; }); },
+    cancel: async () => { cancelled = true; cancelLogin('已取消'); }
+  };
+  mount({ querySelector: id => elements[id] }, async () => null, async () => [], auth);
+  const login = elements['#login'].handlers.click();
+  await Promise.resolve();
+  assert.equal(dialog.open, true);
+  let prevented = false;
+  await dialog.handlers.cancel({ preventDefault() { prevented = true; } });
+  await login;
+  assert.equal(prevented, true);
+  assert.equal(cancelled, true);
+  assert.equal(dialog.open, false);
+  assert.equal(elements['#auth-status'].textContent, '未登录');
+});
+
 test('selecting an IPA displays its path to the user', async () => {
   const elements = Object.fromEntries(['#ipa', '#error', '#choose', '#refresh', '#devices'].map(id => [id, {
     textContent: '', addEventListener(_event, handler) { this.click = handler; }
