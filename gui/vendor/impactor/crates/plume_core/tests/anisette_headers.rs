@@ -16,3 +16,11 @@ fn stale_anisette_refresh_failure_is_reported_instead_of_panicking() {
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
     assert!(runtime.block_on(account.get_anisette()).is_err());
 }
+
+#[test]
+fn malformed_client_information_is_reported_without_panicking() {
+    let mut headers = HashMap::new();
+    headers.insert("X-Mme-Client-Info".into(), "malformed".into());
+    let data = AnisetteData { base_headers: headers, generated_at: SystemTime::now(), config: Default::default() };
+    assert!(data.get_header("x-mme-client-info").is_err());
+}

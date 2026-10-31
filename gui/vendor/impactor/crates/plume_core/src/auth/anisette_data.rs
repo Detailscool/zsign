@@ -56,10 +56,15 @@ impl AnisetteData {
                 Some(v) => {
                     let temp = v.as_str();
 
-                    temp.replace(
-                        temp.split('<').nth(3).unwrap().split('>').nth(0).unwrap(),
-                        "com.apple.AuthKit/1 (com.apple.akd/1.0)",
-                    )
+                    let Some((component, _)) = temp
+                        .split('<')
+                        .nth(3)
+                        .and_then(|part| part.split_once('>'))
+                        .filter(|(component, _)| !component.is_empty())
+                    else {
+                        return headers;
+                    };
+                    temp.replacen(component, "com.apple.AuthKit/1 (com.apple.akd/1.0)", 1)
                 }
                 None => {
                     return headers;
