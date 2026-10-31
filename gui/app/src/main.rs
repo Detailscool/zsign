@@ -11,6 +11,23 @@ fn select_ipa() -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
+async fn inspect_dropped_ipa(path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let file = std::path::Path::new(&path);
+        if !file
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("ipa"))
+        {
+            return Err("请选择 IPA 文件".to_string());
+        }
+        ipa::inspect_ipa(file)?;
+        Ok(path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn list_devices() -> Result<Vec<zsign_gui_core::devices::Device>, String> {
     tauri::async_runtime::spawn_blocking(devices::discover)
         .await
@@ -29,6 +46,7 @@ fn main() {
         .manage(std::sync::Arc::new(preparation::PlanStore::default()))
         .invoke_handler(tauri::generate_handler![
             select_ipa,
+            inspect_dropped_ipa,
             list_devices,
             auth::login,
             auth::restore_session,

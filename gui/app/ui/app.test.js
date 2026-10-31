@@ -2,6 +2,23 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { mount } from './workflow.js';
 
+test('dropping an IPA validates it and displays its path', async () => {
+  const elements = Object.fromEntries(['#ipa', '#error', '#choose', '#refresh', '#devices'].map(id => [id, {
+    textContent: '', addEventListener(_event, handler) { this.click = handler; }
+  }]));
+  let onDrop, inspected;
+  const dragDrop = {
+    subscribe: handler => { onDrop = handler; },
+    inspect: async path => { inspected = path; return path; }
+  };
+  mount({ querySelector: id => elements[id] }, async () => null, async () => [], null, null, null, dragDrop);
+  await onDrop(['/tmp/Example.ipa']);
+  assert.equal(inspected, '/tmp/Example.ipa');
+  assert.equal(elements['#ipa'].textContent, '/tmp/Example.ipa');
+  await onDrop(['/tmp/one.ipa', '/tmp/two.ipa']);
+  assert.match(elements['#error'].textContent, /一个/);
+});
+
 test('verification opens a modal and dismissing it cancels sign in', async () => {
   const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#cancel-verify'];
   const elements = Object.fromEntries(ids.map(id => [id, {

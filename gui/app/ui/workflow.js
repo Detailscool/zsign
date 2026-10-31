@@ -1,4 +1,4 @@
-export function mount(document, openDialog, fetchDevices, auth, prepareSigning, signing) {
+export function mount(document, openDialog, fetchDevices, auth, prepareSigning, signing, dragDrop) {
   let ipa = '';
   let revision = 0;
   let planToken = null;
@@ -26,6 +26,25 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
       error.textContent = `无法选择文件：${e}`;
     }
   });
+  if (dragDrop) {
+    dragDrop.subscribe(async paths => {
+      invalidatePlan();
+      const selectedRevision = revision;
+      try {
+        if (paths.length !== 1) throw '请拖入一个 IPA 文件。';
+        const selected = await dragDrop.inspect(paths[0]);
+        if (revision !== selectedRevision) return;
+        ipa = selected;
+        output.textContent = ipa;
+        error.textContent = '';
+      } catch (e) {
+        if (revision !== selectedRevision) return;
+        ipa = '';
+        output.textContent = '尚未选择 IPA';
+        error.textContent = `无法选择文件：${e}`;
+      }
+    });
+  }
   document.querySelector('#refresh').addEventListener('click', async () => {
     invalidatePlan();
     try {
