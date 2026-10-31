@@ -9,6 +9,8 @@ export function mount(document, openDialog, fetchDevices, auth) {
       output.textContent = ipa || '尚未选择 IPA';
       error.textContent = '';
     } catch (e) {
+      ipa = '';
+      output.textContent = '尚未选择 IPA';
       error.textContent = `无法选择文件：${e}`;
     }
   });

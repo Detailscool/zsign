@@ -11,7 +11,9 @@ pub struct Device {
 /// Extract connected physical iOS devices from `devicectl list devices` JSON.
 pub fn parse_devicectl_devices(output: &str) -> Result<Vec<Device>, String> {
     let value: Value = serde_json::from_str(output).map_err(|e| e.to_string())?;
-    let devices = value.pointer("/result/devices").and_then(Value::as_array)
+    let devices = value
+        .pointer("/result/devices")
+        .and_then(Value::as_array)
         .ok_or("devicectl response does not contain a device list")?;
     let mut result = Vec::new();
     for device in devices {
@@ -20,12 +22,19 @@ pub fn parse_devicectl_devices(output: &str) -> Result<Vec<Device>, String> {
         if hardware["reality"].as_str() != Some("physical")
             || hardware["platform"].as_str() != Some("iOS")
             || properties["connection"]["state"].as_str() != Some("connected")
-        { continue; }
+        {
+            continue;
+        }
         if let (Some(id), Some(udid), Some(name)) = (
-            device["identifier"].as_str(), hardware["udid"].as_str(),
+            device["identifier"].as_str(),
+            hardware["udid"].as_str(),
             properties["state"]["name"].as_str(),
         ) {
-            result.push(Device { id: id.into(), udid: udid.into(), name: name.into() });
+            result.push(Device {
+                id: id.into(),
+                udid: udid.into(),
+                name: name.into(),
+            });
         }
     }
     Ok(result)

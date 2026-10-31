@@ -8239,8 +8239,10 @@ dependencies = [
 name = "zsign-gui-core"
 version = "0.1.0"
 dependencies = [
+ "plist",
  "serde",
  "serde_json",
+ "zip",
 ]
 
 [[package]]

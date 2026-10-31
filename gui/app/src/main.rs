@@ -1,9 +1,14 @@
 #[tauri::command]
-fn select_ipa() -> Option<String> {
-    rfd::FileDialog::new()
+fn select_ipa() -> Result<Option<String>, String> {
+    let path = rfd::FileDialog::new()
         .add_filter("iOS App", &["ipa"])
-        .pick_file()
-        .map(|path| path.to_string_lossy().into_owned())
+        .pick_file();
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    let file = std::fs::File::open(&path).map_err(|e| format!("无法打开 IPA：{e}"))?;
+    zsign_gui_core::ipa::inspect_archive(file)?;
+    Ok(Some(path.to_string_lossy().into_owned()))
 }
 
 #[cfg(target_os = "macos")]

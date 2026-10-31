@@ -11,6 +11,21 @@ test('selecting an IPA displays its path to the user', async () => {
   assert.equal(elements['#ipa'].textContent, '/Users/test/Example.ipa');
 });
 
+test('a rejected IPA clears an earlier selection', async () => {
+  const elements = Object.fromEntries(['#ipa', '#error', '#choose', '#refresh', '#devices'].map(id => [id, {
+    textContent: '', addEventListener(_event, handler) { this.click = handler; }
+  }]));
+  let calls = 0;
+  mount({ querySelector: id => elements[id] }, async () => {
+    if (++calls === 1) return '/Users/test/Example.ipa';
+    throw new Error('不支持扩展');
+  });
+  await elements['#choose'].click();
+  await elements['#choose'].click();
+  assert.equal(elements['#ipa'].textContent, '尚未选择 IPA');
+  assert.match(elements['#error'].textContent, /不支持扩展/);
+});
+
 test('device refresh displays connected device names', async () => {
   const elements = Object.fromEntries(['#ipa', '#error', '#choose', '#refresh', '#devices'].map(id => [id, {
     textContent: '', addEventListener(_event, handler) { this.click = handler; },
