@@ -63,6 +63,7 @@ fn main() {
             list_devices,
             auth::login,
             auth::submit_verification,
+            auth::list_teams,
             auth::send_sms,
             auth::cancel_verification
         ])

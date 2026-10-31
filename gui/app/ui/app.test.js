@@ -46,3 +46,19 @@ test('a verification challenge asks for a code and submits it to the authenticat
   await login;
   assert.equal(code, '123456');
 });
+
+test('after signing in the user can choose a developer team', async () => {
+  const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#teams'];
+  const elements = Object.fromEntries(ids.map(id => [id, {
+    textContent: '', value: '', hidden: false,
+    addEventListener(_event, handler) { this.click = handler; },
+    replaceChildren(...children) { this.children = children; }
+  }]));
+  elements['#email'].value = 'user@example.com';
+  elements['#password'].value = 'secret';
+  const document = { querySelector: id => elements[id], createElement: () => ({}) };
+  const auth = { subscribe() {}, login: async () => {}, listTeams: async () => [{ id: 'TEAM1', name: 'Test Team', kind: 'Free' }] };
+  mount(document, async () => null, async () => [], auth);
+  await elements['#login'].click();
+  assert.equal(elements['#teams'].children[0].textContent, 'Test Team (Free)');
+});

@@ -37,6 +37,28 @@ export function mount(document, openDialog, fetchDevices, auth) {
     const status = document.querySelector('#auth-status');
     const verification = document.querySelector('#verification');
     const login = document.querySelector('#login');
+    const loadTeams = async () => {
+      const select = document.querySelector('#teams');
+      if (!select || !auth.listTeams) return;
+      try {
+        const teams = await auth.listTeams();
+        const options = teams.map(team => {
+          const option = document.createElement('option');
+          option.value = team.id;
+          option.textContent = `${team.name} (${team.kind})`;
+          return option;
+        });
+        if (!options.length) {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = '没有可用的开发团队';
+          options.push(option);
+        }
+        select.replaceChildren(...options);
+        const area = document.querySelector('#team-area');
+        if (area) area.hidden = false;
+      } catch (e) { error.textContent = `无法读取开发团队：${e}`; }
+    };
     const subscription = Promise.resolve(auth.subscribe(challenge => {
       verification.hidden = false;
       status.textContent = '等待验证码';
@@ -62,6 +84,9 @@ export function mount(document, openDialog, fetchDevices, auth) {
       const useRemote = document.querySelector('#remote')?.checked;
       const remoteUrl = useRemote ? document.querySelector('#remote-url').value.trim() : null;
       passwordInput.value = '';
+      const teamArea = document.querySelector('#team-area');
+      if (teamArea) teamArea.hidden = true;
+      document.querySelector('#teams')?.replaceChildren();
       login.disabled = true;
       error.textContent = '';
       status.textContent = '正在登录';
@@ -70,6 +95,8 @@ export function mount(document, openDialog, fetchDevices, auth) {
         await auth.login(email, password, remoteUrl);
         verification.hidden = true;
         status.textContent = '已登录';
+        if (teamArea) teamArea.hidden = false;
+        await loadTeams();
       } catch (e) {
         verification.hidden = true;
         status.textContent = '未登录';
@@ -90,5 +117,6 @@ export function mount(document, openDialog, fetchDevices, auth) {
       try { await auth.sendSms(Number(document.querySelector('#phones').value)); }
       catch (e) { error.textContent = `无法发送短信：${e}`; }
     });
+    document.querySelector('#refresh-teams')?.addEventListener('click', loadTeams);
   }
 }

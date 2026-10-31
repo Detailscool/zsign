@@ -16,6 +16,7 @@
         <input id="remote-url" type="url" placeholder="https://example.com" aria-label="远程认证服务地址">
       </details>
       <button id="login">登录 Apple ID</button>
+      <div id="team-area" hidden><label>开发团队 <select id="teams" aria-label="开发团队"></select></label><button id="refresh-teams">刷新团队</button></div>
       <div id="verification" hidden>
         <p id="verification-message">请输入 Apple 发送的 6 位验证码。</p>
         <div class="row"><input id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-label="验证码"><button id="verify">验证</button><button id="cancel-verify">取消</button></div>

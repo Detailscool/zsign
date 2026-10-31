@@ -26,6 +26,43 @@ struct Challenge {
     phones: Vec<Phone>,
 }
 
+#[derive(Serialize)]
+pub struct Team {
+    id: String,
+    name: String,
+    kind: String,
+}
+
+#[tauri::command]
+pub async fn list_teams(state: State<'_, Arc<Authentication>>) -> Result<Vec<Team>, String> {
+    let account = state
+        .account
+        .lock()
+        .map_err(|_| "账户状态不可用")?
+        .clone()
+        .ok_or("请先登录 Apple ID")?;
+    let spd = account.spd.as_ref().ok_or("登录会话不完整，请重新登录")?;
+    if ["adsid", "GsIdmsToken", "sk", "c"]
+        .iter()
+        .any(|key| !spd.contains_key(*key))
+    {
+        return Err("登录会话不完整，请重新登录".into());
+    }
+    let session = plume_core::developer::DeveloperSession::using_account(account)
+        .await
+        .map_err(|e| e.to_string())?;
+    let response = session.qh_list_teams().await.map_err(|e| e.to_string())?;
+    Ok(response
+        .teams
+        .into_iter()
+        .map(|team| Team {
+            id: team.team_id,
+            name: team.name,
+            kind: team._type,
+        })
+        .collect())
+}
+
 struct RunningGuard(Arc<Authentication>);
 impl Drop for RunningGuard {
     fn drop(&mut self) {
