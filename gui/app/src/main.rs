@@ -17,7 +17,13 @@ async fn list_devices() -> Result<Vec<zsign_gui_core::devices::Device>, String> 
         .map_err(|e| e.to_string())?
 }
 
+fn configure_tls() {
+    // Dependencies enable multiple rustls providers; choose one before any client is built.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
 fn main() {
+    configure_tls();
     tauri::Builder::default()
         .manage(std::sync::Arc::new(auth::Authentication::default()))
         .manage(std::sync::Arc::new(preparation::PlanStore::default()))
@@ -46,3 +52,12 @@ mod package;
 mod preparation;
 mod secrets;
 mod signer;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn tls_client_configuration_works_when_multiple_providers_are_enabled() {
+        super::configure_tls();
+        let _ = rustls::ClientConfig::builder();
+    }
+}
