@@ -1,17 +1,21 @@
+use crate::secrets::SystemSecretStore;
 use omnisette::AnisetteConfiguration;
 use plume_core::auth::{Account, TwoFactorAction, TwoFactorMethod, TwoFactorRequest};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     mpsc, Arc, Mutex,
 };
 use tauri::{Emitter, Manager, State};
+use zsign_gui_core::sessions::{decode_session, encode_session, SessionVault};
 
 #[derive(Default)]
 pub struct Authentication {
     running: AtomicBool,
     pending: Mutex<Option<mpsc::Sender<Result<TwoFactorAction, String>>>>,
     pub account: Mutex<Option<Account>>,
+    current_email: Mutex<Option<String>>,
 }
 
 #[derive(Clone, Serialize)]
@@ -31,6 +35,38 @@ pub struct Team {
     id: String,
     name: String,
     kind: String,
+}
+
+#[derive(Serialize)]
+pub struct LoginResult {
+    warning: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct SignOutResult {
+    warning: Option<String>,
+}
+
+fn anisette_config(
+    app: &tauri::AppHandle,
+    remote_url: Option<String>,
+) -> Result<AnisetteConfiguration, String> {
+    let mut directory = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("anisette");
+    let mut config = AnisetteConfiguration::new();
+    if let Some(url) = remote_url {
+        config = config
+            .allow_remote(url.clone())
+            .map_err(|e| e.to_string())?;
+        directory = directory.join(format!("remote-{:x}", Sha256::digest(url.as_bytes())));
+    } else {
+        directory = directory.join("local");
+    }
+    std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    Ok(config.set_configuration_path(directory))
 }
 
 #[tauri::command]
@@ -80,20 +116,12 @@ pub async fn login(
     email: String,
     password: String,
     remote_url: Option<String>,
-) -> Result<(), String> {
+    remember: bool,
+) -> Result<LoginResult, String> {
     if email.trim().is_empty() || password.is_empty() {
         return Err("请输入 Apple ID 和密码".into());
     }
-    let directory = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("anisette");
-    std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
-    let mut config = AnisetteConfiguration::new().set_configuration_path(directory);
-    if let Some(url) = remote_url {
-        config = config.allow_remote(url).map_err(|e| e.to_string())?;
-    }
+    let config = anisette_config(&app, remote_url)?;
     if state
         .running
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
@@ -105,6 +133,7 @@ pub async fn login(
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = RunningGuard(shared.clone());
         *shared.account.lock().map_err(|_| "账户状态不可用")? = None;
+        *shared.current_email.lock().map_err(|_| "账户状态不可用")? = None;
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -145,8 +174,105 @@ pub async fn login(
                 config,
             ))
             .map_err(|e| e.to_string())?;
+        let warning = if remember {
+            let saved = account
+                .spd
+                .as_ref()
+                .ok_or("登录会话不完整，无法保存".to_string())
+                .and_then(encode_session)
+                .and_then(|bytes| {
+                    SessionVault::new(&SystemSecretStore).save_if_requested(&email, &bytes, true)
+                });
+            saved.err().map(|e| format!("已登录，但未能保存会话：{e}"))
+        } else {
+            None
+        };
         *shared.account.lock().map_err(|_| "账户状态不可用")? = Some(account);
+        *shared.current_email.lock().map_err(|_| "账户状态不可用")? = Some(email);
+        Ok(LoginResult { warning })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn restore_session(
+    app: tauri::AppHandle,
+    state: State<'_, Arc<Authentication>>,
+    email: String,
+    remote_url: Option<String>,
+) -> Result<(), String> {
+    if email.trim().is_empty() {
+        return Err("请输入 Apple ID".into());
+    }
+    let config = anisette_config(&app, remote_url)?;
+    if state
+        .running
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return Err("登录正在进行中".into());
+    }
+    let shared = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = RunningGuard(shared.clone());
+        *shared.account.lock().map_err(|_| "账户状态不可用")? = None;
+        *shared.current_email.lock().map_err(|_| "账户状态不可用")? = None;
+        let bytes = SessionVault::new(&SystemSecretStore)
+            .load(&email)?
+            .ok_or("没有找到已保存的会话")?;
+        let spd = decode_session(&bytes)?;
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| e.to_string())?;
+        let mut account = runtime
+            .block_on(Account::new(config))
+            .map_err(|e| e.to_string())?;
+        account.spd = Some(spd);
+        let session = runtime
+            .block_on(plume_core::developer::DeveloperSession::using_account(
+                account.clone(),
+            ))
+            .map_err(|_| "会话已失效或无法连接 Apple，请重新登录")?;
+        runtime
+            .block_on(session.qh_list_teams())
+            .map_err(|_| "会话已失效或无法读取开发团队，请重新登录")?;
+        *shared.account.lock().map_err(|_| "账户状态不可用")? = Some(account);
+        *shared.current_email.lock().map_err(|_| "账户状态不可用")? = Some(email);
         Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn sign_out(state: State<'_, Arc<Authentication>>) -> Result<SignOutResult, String> {
+    if state
+        .running
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return Err("请先完成或取消登录".into());
+    }
+    let shared = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = RunningGuard(shared.clone());
+        *shared.account.lock().map_err(|_| "账户状态不可用")? = None;
+        let email = shared
+            .current_email
+            .lock()
+            .map_err(|_| "账户状态不可用")?
+            .clone();
+        if let Some(email) = email {
+            if let Err(error) = SessionVault::new(&SystemSecretStore).forget(&email) {
+                return Ok(SignOutResult {
+                    warning: Some(error),
+                });
+            }
+        }
+        *shared.current_email.lock().map_err(|_| "账户状态不可用")? = None;
+        Ok(SignOutResult { warning: None })
     })
     .await
     .map_err(|e| e.to_string())?

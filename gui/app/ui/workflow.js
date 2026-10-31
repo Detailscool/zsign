@@ -85,6 +85,7 @@ export function mount(document, openDialog, fetchDevices, auth) {
       const password = passwordInput.value;
       const useRemote = document.querySelector('#remote')?.checked;
       const remoteUrl = useRemote ? document.querySelector('#remote-url').value.trim() : null;
+      const remember = Boolean(document.querySelector('#remember')?.checked);
       passwordInput.value = '';
       const teamArea = document.querySelector('#team-area');
       if (teamArea) teamArea.hidden = true;
@@ -94,11 +95,14 @@ export function mount(document, openDialog, fetchDevices, auth) {
       status.textContent = '正在登录';
       try {
         await subscription;
-        await auth.login(email, password, remoteUrl);
+        const result = await auth.login(email, password, remoteUrl, remember);
         verification.hidden = true;
         status.textContent = '已登录';
+        const signOut = document.querySelector('#sign-out');
+        if (signOut) signOut.hidden = false;
         if (teamArea) teamArea.hidden = false;
         await loadTeams();
+        if (result?.warning) error.textContent = result.warning;
       } catch (e) {
         verification.hidden = true;
         status.textContent = '未登录';
@@ -120,5 +124,37 @@ export function mount(document, openDialog, fetchDevices, auth) {
       catch (e) { error.textContent = `无法发送短信：${e}`; }
     });
     document.querySelector('#refresh-teams')?.addEventListener('click', loadTeams);
+    document.querySelector('#restore')?.addEventListener('click', async () => {
+      const email = document.querySelector('#email').value.trim();
+      const remoteUrl = document.querySelector('#remote')?.checked ? document.querySelector('#remote-url').value.trim() : null;
+      login.disabled = true;
+      error.textContent = '';
+      status.textContent = '正在恢复会话';
+      const teamArea = document.querySelector('#team-area');
+      if (teamArea) teamArea.hidden = true;
+      document.querySelector('#teams')?.replaceChildren();
+      try {
+        await auth.restore(email, remoteUrl);
+        status.textContent = '已登录';
+        const signOut = document.querySelector('#sign-out');
+        if (signOut) signOut.hidden = false;
+        if (teamArea) teamArea.hidden = false;
+        await loadTeams();
+      } catch (e) {
+        status.textContent = '未登录';
+        error.textContent = `无法恢复会话：${e}`;
+      } finally { login.disabled = false; }
+    });
+    document.querySelector('#sign-out')?.addEventListener('click', async () => {
+      try {
+        const result = await auth.signOut();
+        document.querySelector('#sign-out').hidden = !result?.warning;
+        error.textContent = result?.warning ? `已退出，但无法清除保存的会话：${result.warning}` : '';
+        status.textContent = '未登录';
+        const area = document.querySelector('#team-area');
+        if (area) area.hidden = true;
+        document.querySelector('#teams')?.replaceChildren();
+      } catch (e) { error.textContent = `无法退出登录：${e}`; }
+    });
   }
 }

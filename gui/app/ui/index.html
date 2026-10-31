@@ -10,12 +10,15 @@
       <p>密码和验证码仅用于本次登录，不会保存。</p>
       <label>Apple ID <input id="email" type="email" autocomplete="username" placeholder="name@example.com"></label>
       <label>密码 <input id="password" type="password" autocomplete="off"></label>
+      <label class="inline"><input id="remember" type="checkbox"> 记住登录会话（保存到系统安全存储）</label>
       <details><summary>认证数据来源</summary>
         <p>默认使用本机认证数据。如果本机不可用，可以选择远程服务：服务会收到用于生成认证数据的设备标识和配置数据。Apple ID、密码与验证码用于向 Apple 认证。</p>
         <label class="inline"><input id="remote" type="checkbox"> 使用以下远程服务</label>
         <input id="remote-url" type="url" placeholder="https://example.com" aria-label="远程认证服务地址">
       </details>
       <button id="login">登录 Apple ID</button>
+      <button id="restore">恢复已保存的会话</button>
+      <button id="sign-out" hidden>退出登录并清除会话</button>
       <div id="team-area" hidden><label>开发团队 <select id="teams" aria-label="开发团队"></select></label><button id="refresh-teams">刷新团队</button></div>
       <div id="verification" hidden>
         <p id="verification-message">请输入 Apple 发送的 6 位验证码。</p>

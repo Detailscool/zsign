@@ -77,3 +77,34 @@ test('after signing in the user can choose a developer team', async () => {
   await elements['#login'].click();
   assert.equal(elements['#teams'].children[0].textContent, 'Test Team (Free)');
 });
+
+test('the remember-session choice is sent to the login service', async () => {
+  const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#remember'];
+  const elements = Object.fromEntries(ids.map(id => [id, {
+    textContent: '', value: '', checked: false, hidden: false,
+    addEventListener(_event, handler) { this.click = handler; }, replaceChildren() {}
+  }]));
+  elements['#email'].value = 'user@example.com';
+  elements['#password'].value = 'secret';
+  elements['#remember'].checked = true;
+  let remembered;
+  const auth = { subscribe() {}, login: async (_email, _password, _remote, remember) => { remembered = remember; } };
+  mount({ querySelector: id => elements[id] }, async () => null, async () => [], auth);
+  await elements['#login'].click();
+  assert.equal(remembered, true);
+});
+
+test('a saved session can be restored without entering a password', async () => {
+  const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#restore'];
+  const elements = Object.fromEntries(ids.map(id => [id, {
+    textContent: '', value: '', checked: false, hidden: false,
+    addEventListener(_event, handler) { this.click = handler; }, replaceChildren() {}
+  }]));
+  elements['#email'].value = 'user@example.com';
+  let restored;
+  const auth = { subscribe() {}, restore: async email => { restored = email; } };
+  mount({ querySelector: id => elements[id] }, async () => null, async () => [], auth);
+  await elements['#restore'].click();
+  assert.equal(restored, 'user@example.com');
+  assert.equal(elements['#auth-status'].textContent, '已登录');
+});

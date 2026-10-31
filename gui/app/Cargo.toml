@@ -18,6 +18,9 @@ serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
 apple-codesign = { path = "../vendor/impactor/3rdparty/apple-codesign-0.29.0", default-features = false }
 zip = { version = "2", default-features = false, features = ["deflate"] }
+keyring = "4.2"
+plist = "1"
+sha2 = "0.10"
 
 [patch.crates-io]
 apple-codesign = { path = "../vendor/impactor/3rdparty/apple-codesign-0.29.0" }

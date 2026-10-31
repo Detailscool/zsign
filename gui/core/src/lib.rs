@@ -2,6 +2,7 @@
 
 pub mod devices;
 pub mod ipa;
+pub mod sessions;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthenticationState {

@@ -66,6 +66,8 @@ fn main() {
             select_ipa,
             list_devices,
             auth::login,
+            auth::restore_session,
+            auth::sign_out,
             auth::submit_verification,
             auth::list_teams,
             auth::send_sms,
@@ -76,3 +78,4 @@ fn main() {
 }
 mod auth;
 mod ipa;
+mod secrets;
