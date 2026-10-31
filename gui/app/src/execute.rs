@@ -46,6 +46,7 @@ pub async fn execute_signing(
     plan_state: State<'_, Arc<PlanStore>>,
     token: String,
 ) -> Result<String, String> {
+    let _operation_guard = auth_state.inner().lock_for_signing()?;
     let plan = plan_state.consume(&token, auth_state.generation())?;
     let cli = signer::cli_path(&app)?;
     let export = tauri::async_runtime::spawn_blocking(|| {

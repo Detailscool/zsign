@@ -23,6 +23,13 @@ impl Authentication {
     pub fn generation(&self) -> u64 {
         self.generation.load(Ordering::Acquire)
     }
+
+    pub fn lock_for_signing(self: &Arc<Self>) -> Result<RunningGuard, String> {
+        self.running
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map_err(|_| "已有账户或签名操作正在进行")?;
+        Ok(RunningGuard(self.clone()))
+    }
 }
 
 #[derive(Clone, Serialize)]
@@ -112,7 +119,7 @@ pub async fn developer_session(
         .map_err(|e| e.to_string())
 }
 
-struct RunningGuard(Arc<Authentication>);
+pub struct RunningGuard(Arc<Authentication>);
 impl Drop for RunningGuard {
     fn drop(&mut self) {
         if let Ok(mut pending) = self.0.pending.lock() {
@@ -324,4 +331,18 @@ pub fn send_sms(state: State<'_, Arc<Authentication>>, phone_id: u32) -> Result<
 #[tauri::command]
 pub fn cancel_verification(state: State<'_, Arc<Authentication>>) -> Result<(), String> {
     answer(&state, Err("用户取消验证".into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn signing_operations_are_exclusive_and_release_the_lock() {
+        let state = Arc::new(Authentication::default());
+        let operation = state.lock_for_signing().unwrap();
+        assert!(state.lock_for_signing().is_err());
+        drop(operation);
+        assert!(state.lock_for_signing().is_ok());
+    }
 }
