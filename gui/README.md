@@ -5,7 +5,9 @@ sign and currently requires real Apple account and device validation before it
 can be considered production-ready.
 
 On macOS install Rust, Xcode, pkg-config and OpenSSL (including static libraries),
-then run `sh gui/build-macos.sh`. The result is `gui/dist/zsign Desktop.app`.
+then run `make release-app` from the repository root. The result is
+`gui/dist/zsign Desktop.app`. Run `make release-cli` to build only `bin/zsign`
+with statically linked OpenSSL. Both targets currently build for macOS.
 If the active developer directory is Command Line Tools, select Xcode for the
 build by setting `DEVELOPER_DIR` to its `Contents/Developer` directory.
 The script links OpenSSL into the bundled CLI; the minimum macOS version of the
