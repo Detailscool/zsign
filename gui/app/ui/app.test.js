@@ -148,3 +148,17 @@ test('a preview is discarded if the inputs change while it is loading', async ()
   await pending;
   assert.equal(elements['#plan-area'].hidden, true);
 });
+
+test('confirming a preview starts exactly that prepared signing task', async () => {
+  const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#teams', '#bundle-id', '#prepare', '#plan-details', '#plan-area', '#execute', '#task-status'];
+  const elements = Object.fromEntries(ids.map(id => [id, { textContent: '', value: '', hidden: false,
+    addEventListener(_event, handler) { this.click = handler; }, replaceChildren() {} }]));
+  elements['#teams'].value = 'TEAM123456'; elements['#devices'].value = 'device-1';
+  let token;
+  const signing = { execute: async value => { token = value; return '/tmp/signed.ipa'; }, subscribe() {} };
+  const prepare = async () => ({ token: 'approved-plan', plan: { app_name: 'App', original_bundle_id: 'com.example.app', target_bundle_id: 'com.example.app', team_name: 'Team', device_name: 'Phone' } });
+  mount({ querySelector: id => elements[id] }, async () => '/tmp/input.ipa', async () => [], { subscribe() {} }, prepare, signing);
+  await elements['#choose'].click(); await elements['#prepare'].click(); await elements['#execute'].click();
+  assert.equal(token, 'approved-plan');
+  assert.match(elements['#task-status'].textContent, /signed.ipa/);
+});

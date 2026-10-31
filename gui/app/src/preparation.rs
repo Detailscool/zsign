@@ -25,6 +25,49 @@ pub struct StoredPlan {
     pub account_generation: u64,
 }
 
+impl PlanStore {
+    pub fn consume(&self, token: &str, generation: u64) -> Result<StoredPlan, String> {
+        let mut guard = self.0.lock().map_err(|_| "签名计划不可用")?;
+        let plan = guard.take().ok_or("签名预览已失效，请重新检查")?;
+        if plan.token != token || plan.account_generation != generation {
+            return Err("签名预览已失效，请重新检查".into());
+        }
+        Ok(plan)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn confirmation_is_bound_to_one_plan_and_cannot_be_replayed() {
+        let plan = zsign_gui_core::plan::build_plan(zsign_gui_core::plan::PlanInput {
+            app_name: "App".into(),
+            original_bundle_id: "com.example.app".into(),
+            requested_bundle_id: None,
+            original_registered: true,
+            requested_registered: false,
+            team_id: "TEAM123456".into(),
+            team_name: "Team".into(),
+            device_id: "device".into(),
+            device_name: "Phone".into(),
+            device_registered: true,
+            certificate: None,
+        })
+        .unwrap();
+        let store = PlanStore(Mutex::new(Some(StoredPlan {
+            token: "token".into(),
+            plan,
+            ipa_path: PathBuf::from("app.ipa"),
+            digest: vec![],
+            device_udid: "device".into(),
+            account_generation: 1,
+        })));
+        assert!(store.consume("token", 1).is_ok());
+        assert!(store.consume("token", 1).is_err());
+    }
+}
+
 #[derive(Serialize)]
 pub struct Preview {
     token: String,

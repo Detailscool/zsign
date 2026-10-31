@@ -31,7 +31,8 @@ fn main() {
             auth::list_teams,
             auth::send_sms,
             auth::cancel_verification,
-            preparation::prepare_signing
+            preparation::prepare_signing,
+            execute::execute_signing
         ])
         .run(tauri::generate_context!())
         .expect("could not start zsign desktop");
@@ -39,6 +40,7 @@ fn main() {
 mod auth;
 mod certificates;
 mod devices;
+mod execute;
 mod ipa;
 mod package;
 mod preparation;

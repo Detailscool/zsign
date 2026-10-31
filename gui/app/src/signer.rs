@@ -1,5 +1,25 @@
 use std::{ffi::OsString, path::Path, process::Command};
 
+pub fn cli_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    let candidate = app
+        .path()
+        .resource_dir()
+        .map_err(|e| e.to_string())?
+        .join(if cfg!(windows) { "zsign.exe" } else { "zsign" });
+    if candidate.is_file() {
+        return Ok(candidate);
+    }
+    #[cfg(debug_assertions)]
+    {
+        let candidate = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../bin/zsign");
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
+    }
+    Err("未找到 zsign 签名程序，请先构建或安装完整应用".into())
+}
+
 pub fn run_cli(executable: &Path, args: &[OsString], working_dir: &Path) -> Result<(), String> {
     let output = Command::new(executable)
         .args(args)

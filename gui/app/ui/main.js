@@ -10,5 +10,9 @@ const auth = {
   sendSms: phoneId => invoke('send_sms', { phoneId }),
   cancel: () => invoke('cancel_verification'),
 };
+const signing = {
+  subscribe: handler => window.__TAURI__.event.listen('signing-progress', event => handler(event.payload.message)),
+  execute: token => invoke('execute_signing', { token }),
+};
 mount(document, () => invoke('select_ipa'), () => invoke('list_devices'), auth,
-  (ipaPath, teamId, deviceId, bundleId) => invoke('prepare_signing', { ipaPath, teamId, deviceId, bundleId }));
+  (ipaPath, teamId, deviceId, bundleId) => invoke('prepare_signing', { ipaPath, teamId, deviceId, bundleId }), signing);

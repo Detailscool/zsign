@@ -1,10 +1,14 @@
-export function mount(document, openDialog, fetchDevices, auth, prepareSigning) {
+export function mount(document, openDialog, fetchDevices, auth, prepareSigning, signing) {
   let ipa = '';
   let revision = 0;
+  let planToken = null;
   const output = document.querySelector('#ipa');
   const error = document.querySelector('#error');
   const invalidatePlan = () => {
     revision += 1;
+    planToken = null;
+    const execute = document.querySelector('#execute');
+    if (execute) execute.disabled = true;
     const area = document.querySelector('#plan-area');
     if (area) area.hidden = true;
   };
@@ -75,9 +79,33 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning) 
         '将获取或更新描述文件；不会自动撤销已有证书。',
       ].join('\n');
       document.querySelector('#plan-area').hidden = false;
+      planToken = result.token;
+      const execute = document.querySelector('#execute');
+      if (execute) execute.disabled = !planToken;
     } catch (e) { error.textContent = `无法准备签名：${e}`; }
     finally { button.disabled = false; }
   });
+  if (signing) {
+    const ready = Promise.resolve(signing.subscribe(message => {
+      document.querySelector('#task-status').textContent = message;
+    }));
+    document.querySelector('#execute').addEventListener('click', async () => {
+      if (!planToken) return;
+      const token = planToken;
+      invalidatePlan();
+      error.textContent = '';
+      const status = document.querySelector('#task-status');
+      status.textContent = '请选择导出位置…';
+      try {
+        await ready;
+        const output = await signing.execute(token);
+        status.textContent = `签名并安装完成，IPA 已保存至 ${output}`;
+      } catch (e) {
+        status.textContent = '任务未完成';
+        error.textContent = String(e);
+      }
+    });
+  }
   if (auth) {
     const status = document.querySelector('#auth-status');
     const verification = document.querySelector('#verification');
