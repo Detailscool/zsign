@@ -281,8 +281,8 @@ impl CertificateIdentity {
         session: &DeveloperSession,
         team_id: &String,
         machine_name: &String,
-        certs: Vec<Cert>,
-        mut on_certificate_reset: Option<&mut dyn FnMut() -> bool>,
+        _certs: Vec<Cert>,
+        _on_certificate_reset: Option<&mut dyn FnMut() -> bool>,
     ) -> Result<(Cert, RsaPrivateKey), Error> {
         let priv_key = RsaPrivateKey::new(&mut OsRng, 2048)?;
         let priv_key_der = priv_key.to_pkcs8_der()?;
@@ -301,63 +301,10 @@ impl CertificateIdentity {
 
         let cert_csr = rcgen::Certificate::from_params(params)?.serialize_request_pem()?;
 
-        let cert_serial_numbers = certs
-            .iter()
-            .map(|c| c.serial_number.clone())
-            .collect::<Vec<_>>();
-        let mut warned_about_reset = false;
-
-        // When we submit a CSR theres a high chance of it failing, at least
-        // on free developer accounts, we put it in a loop so whenever it does
-        // fail, we also look through all of our existing certificates through
-        // the api until we have a success on a single revokage, then we can
-        // successfully submit our csr, but if we just cannot at all, return
-        // an error
-        let cert_id = loop {
-            match session
-                .qh_submit_cert_csr(&team_id, cert_csr.clone(), machine_name)
-                .await
-            {
-                Ok(id) => break id,
-                Err(e) => {
-                    // 7460 is for too many certificates (I think)
-                    if matches!(&e, Error::DeveloperApi { result_code, .. } if *result_code == 7460)
-                    {
-                        if !warned_about_reset {
-                            if let Some(callback) = on_certificate_reset.as_deref_mut() {
-                                if !callback() {
-                                    return Err(Error::Certificate(
-                                        "Certificate reset cancelled".into(),
-                                    ));
-                                }
-                            }
-                            warned_about_reset = true;
-                        }
-
-                        // Try to revoke certificates from the candidate list
-                        let mut revoked_any = false;
-                        for cid in &cert_serial_numbers {
-                            if session.qh_revoke_cert(&team_id, cid).await.is_ok() {
-                                log::warn!("Revoked certificate with serial number {}", cid);
-                                revoked_any = true;
-                                break;
-                            }
-                        }
-
-                        if revoked_any {
-                            continue;
-                        } else {
-                            return Err(Error::Certificate(
-                                "Too many certificates and failed to revoke any".into(),
-                            ));
-                        }
-                    }
-
-                    return Err(e);
-                }
-            }
-        }
-        .cert_request;
+        // A quota error must never revoke an existing certificate implicitly.
+        // Any future revocation flow must present the specific certificate to
+        // the user and require a separate confirmation.
+        let cert_id = session.qh_submit_cert_csr(team_id, cert_csr, machine_name).await?.cert_request;
 
         // We need to save the machine_id for our P12
         if let Some(ref machine_id) = cert_id.machine_id {

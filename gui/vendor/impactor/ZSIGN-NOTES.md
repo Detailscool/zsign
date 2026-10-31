@@ -12,3 +12,7 @@ remote service, requires explicit HTTPS opt-in for remote use, and no longer
 disables TLS certificate verification. A native macOS AOSKit provider was added;
 it reports missing or empty system data as an error. `tests/no_implicit_remote.rs`
 checks the local-only default. These components are not yet connected to the GUI.
+The upstream certificate helper no longer revokes certificates automatically
+when the account is at its certificate limit. Its file-backed private-key storage
+is not used by the GUI; a secure platform store is required before certificate
+creation is connected.
