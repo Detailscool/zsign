@@ -65,6 +65,10 @@ pub fn inspect_archive<R: Read + Seek>(reader: R) -> Result<IpaInfo, String> {
         if entry.enclosed_name().is_none()
             || name.contains('\\')
             || name.contains(':')
+            || name
+                .trim_end_matches('/')
+                .split('/')
+                .any(|part| part.is_empty() || part == ".")
             || !names.insert(name.to_string())
         {
             return Err("IPA 包含不安全或重复的文件路径".into());

@@ -69,6 +69,22 @@ fn parent_segments_are_rejected_even_if_they_stay_inside_the_archive() {
 }
 
 #[test]
+fn equivalent_archive_paths_cannot_overwrite_each_other() {
+    for alias in [
+        "Payload/Example.app//Example",
+        "Payload/Example.app/./Example",
+    ] {
+        let bytes = archive(&[
+            ("Payload/Example.app/Info.plist", INFO),
+            ("Payload/Example.app/Example", b"binary"),
+            (alias, b"different binary"),
+        ]);
+        let error = inspect_archive(Cursor::new(bytes)).unwrap_err();
+        assert!(error.contains("路径"), "{error}");
+    }
+}
+
+#[test]
 fn an_app_with_a_special_capability_is_rejected() {
     let mut entitlements = plist::Dictionary::new();
     entitlements.insert(
