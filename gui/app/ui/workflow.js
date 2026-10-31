@@ -129,6 +129,18 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
     const status = document.querySelector('#auth-status');
     const verification = document.querySelector('#verification');
     const login = document.querySelector('#login');
+    const loginForm = document.querySelector('#login-form');
+    const setRestoring = restoring => {
+      if (loginForm) loginForm.hidden = restoring;
+      const signOut = document.querySelector('#sign-out');
+      const teamArea = document.querySelector('#team-area');
+      if (signOut) { signOut.hidden = !restoring; signOut.disabled = restoring; }
+      if (teamArea) teamArea.hidden = !restoring;
+      for (const id of ['#teams', '#refresh-teams']) {
+        const element = document.querySelector(id);
+        if (element) element.disabled = restoring;
+      }
+    };
     const closeVerification = () => {
       if (verification.open) verification.close();
       verification.hidden = true;
@@ -234,11 +246,12 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
       error.textContent = '';
       status.textContent = '正在恢复会话';
       const teamArea = document.querySelector('#team-area');
-      if (teamArea) teamArea.hidden = true;
+      setRestoring(true);
       document.querySelector('#teams')?.replaceChildren();
       try {
         await auth.restore(email, remoteUrl);
         status.textContent = '已登录';
+        setRestoring(false);
         const loginForm = document.querySelector('#login-form');
         if (loginForm) loginForm.hidden = true;
         const signOut = document.querySelector('#sign-out');
@@ -246,6 +259,7 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
         if (teamArea) teamArea.hidden = false;
         await loadTeams();
       } catch (e) {
+        setRestoring(false);
         status.textContent = '未登录';
         error.textContent = `无法恢复会话：${e}`;
       } finally { login.disabled = false; }
@@ -257,15 +271,17 @@ export function mount(document, openDialog, fetchDevices, auth, prepareSigning, 
     });
     if (auth.savedLogin) {
       login.disabled = true;
+      if (loginForm) loginForm.hidden = true;
+      status.textContent = '正在恢复会话';
       Promise.resolve(auth.savedLogin()).then(saved => {
-        if (!saved) { login.disabled = false; return; }
+        if (!saved) { login.disabled = false; if (loginForm) loginForm.hidden = false; status.textContent = '未登录'; return; }
         document.querySelector('#email').value = saved.email;
         const remote = document.querySelector('#remote');
         if (remote) remote.checked = Boolean(saved.remote_url);
         if (saved.remote_url && document.querySelector('#remote-url')) document.querySelector('#remote-url').value = saved.remote_url;
         return restoreSession(saved.email, saved.remote_url);
-      }).catch(e => { login.disabled = false; error.textContent = `无法读取已保存的会话：${e}`; });
-    }
+      }).catch(e => { login.disabled = false; if (loginForm) loginForm.hidden = false; status.textContent = '未登录'; error.textContent = `无法读取已保存的会话：${e}`; });
+    } else if (loginForm) loginForm.hidden = false;
     document.querySelector('#sign-out')?.addEventListener('click', async () => {
       invalidatePlan();
       try {

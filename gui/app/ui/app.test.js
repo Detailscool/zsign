@@ -2,6 +2,25 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { mount } from './workflow.js';
 
+test('startup restoration hides the login form until restoration fails', async () => {
+  const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#login-form', '#sign-out', '#team-area'];
+  const elements = Object.fromEntries(ids.map(id => [id, {
+    textContent: '', value: '', hidden: false,
+    addEventListener(_event, handler) { this.click = handler; }, replaceChildren() {}
+  }]));
+  let fail;
+  const auth = { subscribe() {}, savedLogin: async () => ({ email: 'user@example.com', remote_url: null }), restore: () => new Promise((_, reject) => { fail = reject; }) };
+  mount({ querySelector: id => elements[id] }, async () => null, async () => [], auth);
+  assert.equal(elements['#login-form'].hidden, true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(elements['#auth-status'].textContent, '正在恢复会话');
+  assert.equal(elements['#login-form'].hidden, true);
+  fail('会话失效');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(elements['#login-form'].hidden, false);
+  assert.equal(elements['#auth-status'].textContent, '未登录');
+});
+
 test('a remembered account is restored automatically on startup', async () => {
   const ids = ['#ipa', '#error', '#choose', '#refresh', '#devices', '#login', '#email', '#password', '#auth-status', '#verification', '#code', '#verify', '#login-form', '#sign-out', '#team-area'];
   const elements = Object.fromEntries(ids.map(id => [id, {
